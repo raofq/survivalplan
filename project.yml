@@ -1,0 +1,27 @@
+name: SurvivalPlan
+options:
+  bundleIdPrefix: com.yourname
+  deploymentTarget:
+    iOS: "17.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+
+targets:
+  SurvivalPlan:
+    type: application
+    platform: iOS
+    sources:
+      - SurvivalPlan
+    settings:
+      base:
+        INFOPLIST_FILE: SurvivalPlan/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.yourname.SurvivalPlan
+    dependencies: []
+    info:
+      path: SurvivalPlan/Info.plist
+      properties:
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UILaunchScreen: [:]

@@ -1,0 +1,266 @@
+import SwiftUI
+import SwiftData
+
+struct OnboardingView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @State private var currentStep = 0
+    @State private var profile: UserProfile
+    
+    init(profile: UserProfile) {
+        _profile = State(initialValue: profile)
+    }
+    
+    let totalSteps = 6
+    
+    var body: some View {
+        NavigationStack {
+            VStack {
+                // 进度条
+                ProgressView(value: Double(currentStep + 1), total: Double(totalSteps))
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                
+                Text("步骤 \(currentStep + 1) / \(totalSteps)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
+                
+                TabView(selection: $currentStep) {
+                    IncomeView(profile: $profile).tag(0)
+                    SavingsView(profile: $profile).tag(1)
+                    FamilyView(profile: $profile).tag(2)
+                    EssentialExpenseView(profile: $profile).tag(3)
+                    FlexibleExpenseView(profile: $profile).tag(4)
+                    DebtAndGoalView(profile: $profile).tag(5)
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                
+                HStack(spacing: 16) {
+                    if currentStep > 0 {
+                        Button("上一步") {
+                            withAnimation { currentStep -= 1 }
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    
+                    Spacer()
+                    
+                    if currentStep < totalSteps - 1 {
+                        Button("下一步") {
+                            withAnimation { currentStep += 1 }
+                        }
+                        .buttonStyle(.borderedProminent)
+                    } else {
+                        Button("完成") {
+                            saveAndDismiss()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.green)
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 24)
+            }
+            .navigationTitle("填写信息")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+    
+    private func saveAndDismiss() {
+        modelContext.insert(profile)
+        try? modelContext.save()
+        dismiss()
+    }
+}
+
+// MARK: - 步骤1：收入来源
+struct IncomeView: View {
+    @Binding var profile: UserProfile
+    
+    var body: some View {
+        Form {
+            Section("收入来源") {
+                Toggle("领取失业金", isOn: $profile.hasUnemploymentBenefit)
+                if profile.hasUnemploymentBenefit {
+                    HStack {
+                        Text("每月金额")
+                        Spacer()
+                        TextField("金额", value: $profile.unemploymentBenefit, format: .number)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                        Text("元/月")
+                    }
+                }
+                
+                Toggle("有兼职/零工收入", isOn: $profile.hasPartTimeIncome)
+                if profile.hasPartTimeIncome {
+                    HStack {
+                        Text("每月")
+                        Spacer()
+                        TextField("金额", value: $profile.partTimeIncome, format: .number)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                        Text("元/月")
+                    }
+                }
+                
+                HStack {
+                    Text("配偶收入")
+                    Spacer()
+                    TextField("金额", value: $profile.spouseIncome, format: .number)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                    Text("元/月")
+                }
+                
+                HStack {
+                    Text("其他收入")
+                    Spacer()
+                    TextField("金额", value: $profile.otherIncome, format: .number)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                    Text("元/月")
+                }
+            } footer: {
+                Text("请如实填写，这关系到生存计算的准确性")
+            }
+        }
+    }
+}
+
+// MARK: - 步骤2：积蓄
+struct SavingsView: View {
+    @Binding var profile: UserProfile
+    
+    var body: some View {
+        Form {
+            Section("积蓄") {
+                HStack {
+                    Text("银行存款")
+                    Spacer()
+                    TextField("金额", value: $profile.savings, format: .number)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                    Text("元")
+                }
+                
+                Toggle("有理财产品/股票/基金", isOn: $profile.hasInvestments)
+                if profile.hasInvestments {
+                    HStack {
+                        Text("可变现金额")
+                        Spacer()
+                        TextField("金额", value: $profile.investments, format: .number)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                        Text("元")
+                    }
+                }
+            } footer: {
+                Text("理财产品按可立即变现的金额填写")
+            }
+        }
+    }
+}
+
+// MARK: - 步骤3：家庭成员
+struct FamilyView: View {
+    @Binding var profile: UserProfile
+    
+    var body: some View {
+        Form {
+            Section("家庭成员") {
+                Toggle("有配偶", isOn: $profile.hasSpouse)
+                
+                Stepper("子女数量: \(profile.childrenCount)", value: $profile.childrenCount, in: 0...10)
+                
+                Toggle("需赡养老人", isOn: $profile.needsSupportElders)
+            } footer: {
+                Text("家庭成员信息会影响教育支出、生活预算等计算")
+            }
+        }
+    }
+}
+
+// MARK: - 步骤4：刚性支出
+struct EssentialExpenseView: View {
+    @Binding var profile: UserProfile
+    
+    var body: some View {
+        Form {
+            Section("每月固定支出（刚性）") {
+                HStack { Text("房贷"); Spacer(); NumberField(value: $profile.mortgage); Text("元/月") }
+                HStack { Text("车贷"); Spacer(); NumberField(value: $profile.carLoan); Text("元/月") }
+                HStack { Text("物业费"); Spacer(); NumberField(value: $profile.propertyFee); Text("元/月") }
+                HStack { Text("水电煤"); Spacer(); NumberField(value: $profile.utilities); Text("元/月") }
+                HStack { Text("网络"); Spacer(); NumberField(value: $profile.internet); Text("元/月") }
+                HStack { Text("手机"); Spacer(); NumberField(value: $profile.phone); Text("元/月") }
+                HStack { Text("保险"); Spacer(); NumberField(value: $profile.insurance); Text("元/月") }
+            } footer: {
+                Text("刚性支出是每个月必须花的钱，请尽量填写准确")
+            }
+        }
+    }
+}
+
+// MARK: - 步骤5：弹性支出
+struct FlexibleExpenseView: View {
+    @Binding var profile: UserProfile
+    
+    var body: some View {
+        Form {
+            Section("每月弹性支出（可调整）") {
+                HStack { Text("食品/买菜"); Spacer(); NumberField(value: $profile.foodBudget); Text("元/月") }
+                HStack { Text("交通"); Spacer(); NumberField(value: $profile.transportBudget); Text("元/月") }
+                HStack { Text("医疗"); Spacer(); NumberField(value: $profile.medicalBudget); Text("元/月") }
+                HStack { Text("教育/小孩"); Spacer(); NumberField(value: $profile.educationBudget); Text("元/月") }
+                HStack { Text("人情往来"); Spacer(); NumberField(value: $profile.socialBudget); Text("元/月") }
+                HStack { Text("购物/娱乐"); Spacer(); NumberField(value: $profile.shoppingBudget); Text("元/月") }
+            } footer: {
+                Text("弹性支出是可以削减的部分，后续会给出优化建议")
+            }
+        }
+    }
+}
+
+// MARK: - 步骤6：债务与目标
+struct DebtAndGoalView: View {
+    @Binding var profile: UserProfile
+    
+    var body: some View {
+        Form {
+            Section("债务（每月还款额）") {
+                HStack { Text("信用卡"); Spacer(); NumberField(value: $profile.creditCardDebt); Text("元/月") }
+                HStack { Text("网贷"); Spacer(); NumberField(value: $profile.onlineLoanDebt); Text("元/月") }
+                HStack { Text("私人借款"); Spacer(); NumberField(value: $profile.privateLoanDebt); Text("元/月") }
+            }
+            
+            Section("预期") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("预计多久能找到工作？")
+                        .font(.subheadline)
+                    Picker("", selection: $profile.expectedMonthsBeforeJob) {
+                        Text("1个月").tag(1)
+                        Text("3个月").tag(3)
+                        Text("6个月").tag(6)
+                        Text("12个月").tag(12)
+                        Text("不确定").tag(24)
+                    }
+                    .pickerStyle(.segmented)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - 辅助组件
+struct NumberField: View {
+    @Binding var value: Double
+    
+    var body: some View {
+        TextField("金额", value: $value, format: .number)
+            .keyboardType(.decimalPad)
+            .multilineTextAlignment(.trailing)
+            .frame(width: 80)
+    }
+}
