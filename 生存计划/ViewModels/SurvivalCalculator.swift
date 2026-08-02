@@ -39,8 +39,11 @@ struct SurvivalCalculator {
     
     /// 计算某个月的具体收支（考虑时间窗口）
     private static func monthFinances(profile: UserProfile, month: Int) -> (income: Double, essential: Double) {
-        // 收入：失业金仅在有额度且未到期时计入
-        var income = profile.partTimeIncome + profile.spouseIncome + profile.otherIncome
+        // 收入：失业金仅在有额度且未到期时计入；兼职收入仅在开启开关时计入
+        var income = profile.spouseIncome + profile.otherIncome
+        if profile.hasPartTimeIncome {
+            income += profile.partTimeIncome
+        }
         if profile.hasUnemploymentBenefit {
             if profile.unemploymentBenefitMonths == 0 || month <= profile.unemploymentBenefitMonths {
                 income += profile.unemploymentBenefit
@@ -174,6 +177,7 @@ struct SurvivalCalculator {
         temp.hasUnemploymentBenefit = profile.hasUnemploymentBenefit
         temp.unemploymentBenefit = profile.unemploymentBenefit
         temp.unemploymentBenefitMonths = profile.unemploymentBenefitMonths
+        temp.hasPartTimeIncome = profile.hasPartTimeIncome
         temp.partTimeIncome = changes.newMonthlyIncome ?? profile.partTimeIncome
         temp.spouseIncome = profile.spouseIncome
         temp.otherIncome = profile.otherIncome
