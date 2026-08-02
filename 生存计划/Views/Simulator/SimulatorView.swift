@@ -241,30 +241,43 @@ struct SimulatorView: View {
                         VStack(spacing: 12) {
                             Text("模拟结果")
                                 .font(.headline)
-                            
-                            HStack(spacing: 0) {
-                                StatItem(value: "\(Int(report.monthsCanSurvive))", label: "可撑(月)", color: .blue)
-                                StatItem(value: "¥\(Int(report.dailyBudget))", label: "每日预算", color: .green)
-                                StatItem(
-                                    value: "¥\(Int(abs(report.monthlyShortfall)))",
-                                    label: report.monthlyShortfall > 0 ? "月缺口" : "月盈余",
-                                    color: report.monthlyShortfall > 0 ? .red : .green
-                                )
-                            }
-                            
-                            Divider()
-                            
-                            // 对比
-                            HStack {
-                                Text("改善前后")
+
+                            // 前后指标对比表
+                            comparisonRow(
+                                label: "可撑月数",
+                                before: "\(Int(currentReport.monthsCanSurvive)) 个月",
+                                after: "\(Int(report.monthsCanSurvive)) 个月",
+                                improved: report.monthsCanSurvive >= currentReport.monthsCanSurvive
+                            )
+                            comparisonRow(
+                                label: "资金耗尽日",
+                                before: formatDate(currentReport.exhaustionDate),
+                                after: formatDate(report.exhaustionDate),
+                                improved: report.exhaustionDate >= currentReport.exhaustionDate
+                            )
+                            comparisonRow(
+                                label: "每日预算",
+                                before: "¥\(Int(currentReport.dailyBudget))",
+                                after: "¥\(Int(report.dailyBudget))",
+                                improved: true
+                            )
+                            comparisonRow(
+                                label: currentReport.monthlyShortfall > 0 ? "月缺口" : "月盈余",
+                                before: "¥\(Int(abs(currentReport.monthlyShortfall)))",
+                                after: "¥\(Int(abs(report.monthlyShortfall)))",
+                                improved: abs(report.monthlyShortfall) <= abs(currentReport.monthlyShortfall)
+                            )
+
+                            if report.monthsCanSurvive > currentReport.monthsCanSurvive {
+                                Label("改善后多撑 \(Int(report.monthsCanSurvive - currentReport.monthsCanSurvive)) 个月", systemImage: "arrow.up.right.circle.fill")
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Text("\(Int(currentReport.monthsCanSurvive)) 个月 → \(Int(report.monthsCanSurvive)) 个月")
-                                    .fontWeight(.bold)
+                                    .fontWeight(.semibold)
                                     .foregroundStyle(.green)
+                            } else if report.monthsCanSurvive < currentReport.monthsCanSurvive {
+                                Label("改善后少撑 \(Int(currentReport.monthsCanSurvive - report.monthsCanSurvive)) 个月，请调整方案", systemImage: "exclamationmark.triangle.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.red)
                             }
-                            .font(.subheadline)
                         }
                         .padding()
                         .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
@@ -319,6 +332,30 @@ struct SimulatorView: View {
                 .frame(width: 64)
                 .multilineTextAlignment(.center)
         }
+    }
+
+    private func comparisonRow(label: String, before: String, after: String, improved: Bool) -> some View {
+        HStack(spacing: 8) {
+            Text(label)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .frame(width: 70, alignment: .leading)
+            Spacer()
+            Text(before)
+                .font(.caption)
+                .foregroundStyle(.gray)
+            Image(systemName: "arrow.right")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(after)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(improved ? .green : .red)
+        }
+    }
+
+    private func formatDate(_ date: Date) -> String {
+        date.formatted(.dateTime.year().month().day())
     }
 
     private func stopShopping() {
@@ -388,6 +425,18 @@ struct TimelineComparisonChart: View {
                     .interpolationMethod(.monotone)
                     .lineStyle(StrokeStyle(lineWidth: 2.5))
                 }
+
+                // 耗尽点标注
+                if let currentExhaust = exhaustionMonth(current) {
+                    RuleMark(x: .value("耗尽月", currentExhaust))
+                        .foregroundStyle(.gray.opacity(0.4))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                }
+                if let simulatedExhaust = exhaustionMonth(simulated) {
+                    RuleMark(x: .value("耗尽月", simulatedExhaust))
+                        .foregroundStyle(.blue.opacity(0.4))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                }
             }
             .chartXAxis {
                 AxisMarks(values: .automatic(desiredCount: 6)) { value in
@@ -424,6 +473,11 @@ struct TimelineComparisonChart: View {
         }
         .padding()
         .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
+    }
+
+    /// 资金耗尽的月份（第一个 savingsAfter <= 0 的月份）
+    private func exhaustionMonth(_ report: SurvivalReport) -> Int? {
+        report.timeline.first { $0.savingsAfter <= 0 }?.id
     }
 }
 
