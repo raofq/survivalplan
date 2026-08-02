@@ -171,17 +171,17 @@ struct FundTimelineCard: View {
                     .foregroundStyle(.secondary)
             }
 
-            Chart(monthlyBudgetPoints, id: \.date) { point in
+            Chart(monthlyBudgetPoints, id: \.day) { point in
                 AreaMark(
-                    x: .value("日期", point.date, unit: .day),
-                    y: .value("剩余", point.remaining)
+                    x: .value("天数", point.day),
+                    y: .value("剩余资金", point.remaining)
                 )
                 .foregroundStyle(.blue.opacity(0.12))
                 .interpolationMethod(.monotone)
 
                 LineMark(
-                    x: .value("日期", point.date, unit: .day),
-                    y: .value("剩余", point.remaining)
+                    x: .value("天数", point.day),
+                    y: .value("剩余资金", point.remaining)
                 )
                 .foregroundStyle(.blue)
                 .interpolationMethod(.monotone)
@@ -198,11 +198,12 @@ struct FundTimelineCard: View {
                     }
                 }
             }
+            .chartYAxisLabel("剩余资金")
             .chartXAxis {
-                AxisMarks(values: .automatic(desiredCount: 4)) { value in
+                AxisMarks(values: .automatic(desiredCount: 6)) { value in
                     AxisValueLabel {
-                        if let date = value.as(Date.self) {
-                            Text(date, format: .dateTime.month().day())
+                        if let day = value.as(Int.self) {
+                            Text("\(day)日")
                                 .font(.caption2)
                         }
                     }
@@ -238,22 +239,23 @@ struct FundTimelineCard: View {
         return expenses.filter { calendar.isDate($0.date, equalTo: Date(), toGranularity: .month) }
     }
 
-    /// 月预算剩余走势：从月初到今天，Y = 月预算 − 当日累计支出
-    private var monthlyBudgetPoints: [(date: Date, remaining: Double)] {
+    /// 月预算剩余走势：X = 当月天数（1..今天），Y = 月预算 − 当日累计支出
+    private var monthlyBudgetPoints: [(day: Int, remaining: Double)] {
         let calendar = Calendar.current
         let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: Date())) ?? Date()
         let today = calendar.startOfDay(for: Date())
 
-        var points: [(date: Date, remaining: Double)] = []
+        var points: [(day: Int, remaining: Double)] = []
         var day = monthStart
         var cumulativeSpent = 0.0
         var guardCount = 0
 
         while day <= today && guardCount < 31 {
+            let dayNumber = calendar.component(.day, from: day)
             let daySpent = monthExpenses.filter { calendar.isDate($0.date, inSameDayAs: day) }
                 .reduce(0.0) { $0 + $1.amount }
             cumulativeSpent += daySpent
-            points.append((day, max(monthBudget - cumulativeSpent, 0)))
+            points.append((dayNumber, max(monthBudget - cumulativeSpent, 0)))
             day = calendar.date(byAdding: .day, value: 1, to: day) ?? today
             guardCount += 1
         }
