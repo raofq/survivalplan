@@ -25,7 +25,7 @@ struct DashboardView: View {
                     FundTimelineCard(report: report)
 
                     // 今日预算 + 快速记账 + 今日支出（合并模块）
-                    DailyBudgetCard(report: report, spentToday: todaySpent)
+                    DailyBudgetCard(report: report, spentToday: todaySpent, categorySpent: todaySpentByCategory)
                     QuickExpenseCard(profile: profile, expenses: expenses, todayExpenses: todayExpenses)
                 }
                 .padding()
@@ -47,6 +47,11 @@ struct DashboardView: View {
 
     private var todaySpent: Double {
         todayExpenses.reduce(0) { $0 + $1.amount }
+    }
+
+    private var todaySpentByCategory: [String: Double] {
+        Dictionary(grouping: todayExpenses) { $0.category }
+            .mapValues { $0.reduce(0) { $0 + $1.amount } }
     }
 }
 
@@ -223,6 +228,7 @@ struct FundTimelineCard: View {
 struct DailyBudgetCard: View {
     let report: SurvivalReport
     let spentToday: Double
+    let categorySpent: [String: Double]
 
     private var remaining: Double { report.dailyBudget - spentToday }
     private var isOver: Bool { remaining < 0 }
@@ -255,11 +261,11 @@ struct DailyBudgetCard: View {
             
             Divider()
             
-            BudgetRow(label: "食品", amount: report.foodBudget, pct: report.foodBudget/report.dailyBudget)
-            BudgetRow(label: "交通", amount: report.transportBudget, pct: report.transportBudget/report.dailyBudget)
-            BudgetRow(label: "医疗", amount: report.medicalBudget, pct: report.medicalBudget/report.dailyBudget)
-            BudgetRow(label: "人情", amount: report.socialBudget, pct: report.socialBudget/report.dailyBudget)
-            BudgetRow(label: "购物", amount: report.shoppingBudget, pct: report.shoppingBudget/report.dailyBudget)
+            BudgetRow(label: "食品", budget: report.foodBudget, spent: categorySpent["食品"] ?? 0)
+            BudgetRow(label: "交通", budget: report.transportBudget, spent: categorySpent["交通"] ?? 0)
+            BudgetRow(label: "医疗", budget: report.medicalBudget, spent: categorySpent["医疗"] ?? 0)
+            BudgetRow(label: "人情", budget: report.socialBudget, spent: categorySpent["人情"] ?? 0)
+            BudgetRow(label: "购物", budget: report.shoppingBudget, spent: categorySpent["购物"] ?? 0)
         }
         .padding()
         .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
@@ -272,8 +278,10 @@ struct DailyBudgetCard: View {
 
 struct BudgetRow: View {
     let label: String
-    let amount: Double
-    let pct: Double
+    let budget: Double
+    let spent: Double
+
+    private var pct: Double { budget > 0 ? spent / budget : 0 }
     
     var body: some View {
         HStack {
@@ -287,15 +295,15 @@ struct BudgetRow: View {
                         .fill(.gray.opacity(0.15))
                         .frame(height: 8)
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(.blue)
+                        .fill(pct > 1 ? Color.red : Color.blue)
                         .frame(width: geo.size.width * min(pct, 1), height: 8)
                 }
             }
             .frame(height: 8)
             
-            Text("¥\(Int(amount))")
+            Text("¥\(Int(spent))/\(Int(budget))")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(pct > 1 ? .red : .secondary)
                 .frame(width: 50, alignment: .trailing)
         }
     }
