@@ -24,6 +24,9 @@
 		E1F2A3B4C5D6E7F8A9B0C1D2 /* WorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A3B4C5D6E7F8A9B0C1D2E3 /* WorkoutView.swift */; };
 		B4C5D6E7F8A9B0C1D2E3F4A5 /* StudyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5D6E7F8A9B0C1D2E3F4A5B6 /* StudyView.swift */; };
 		A6B7C8D9E0F1A2B3C4D5E6F7 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E0F1A2B3C4D5E6F7A8 /* NotificationManager.swift */; };
+		F1A2B3C4D5E6F7A8B9C0D1E2 /* Post.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2B3C4D5E6F7A8B9C0D1E2F3 /* Post.swift */; };
+		B5C6D7E8F9A0B1C2D3E4F5A6 /* CircleAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6D7E8F9A0B1C2D3E4F5A6B7 /* CircleAPI.swift */; };
+		D7E8F9A0B1C2D3E4F5A6B7C8 /* CircleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8F9A0B1C2D3E4F5A6B7C8D9 /* CircleView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -64,6 +67,9 @@
 		F2A3B4C5D6E7F8A9B0C1D2E3 /* WorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutView.swift; sourceTree = "<group>"; };
 		C5D6E7F8A9B0C1D2E3F4A5B6 /* StudyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyView.swift; sourceTree = "<group>"; };
 		B7C8D9E0F1A2B3C4D5E6F7A8 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		A2B3C4D5E6F7A8B9C0D1E2F3 /* Post.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Post.swift; sourceTree = "<group>"; };
+		C6D7E8F9A0B1C2D3E4F5A6B7 /* CircleAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleAPI.swift; sourceTree = "<group>"; };
+		E8F9A0B1C2D3E4F5A6B7C8D9 /* CircleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -153,6 +159,7 @@
 			isa = PBXGroup;
 			children = (
 				B7C8D9E0F1A2B3C4D5E6F7A8 /* NotificationManager.swift */,
+				C6D7E8F9A0B1C2D3E4F5A6B7 /* CircleAPI.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -239,6 +246,14 @@
 			path = Study;
 			sourceTree = "<group>";
 		};
+		F9A0B1C2D3E4F5A6B7C8D9E0 /* Circle */ = {
+			isa = PBXGroup;
+			children = (
+				E8F9A0B1C2D3E4F5A6B7C8D9 /* CircleView.swift */,
+			);
+			path = Circle;
+			sourceTree = "<group>";
+		};
 		ED7EEE77F92F419A952E6F2F /* Views */ = {
 			isa = PBXGroup;
 			children = (
@@ -249,6 +264,7 @@
 				F1E2D3C4B5A6978800112233 /* Settings */,
 				D6E7F8A9B0C1D2E3F4A5B6C7 /* Workout */,
 				E7F8A9B0C1D2E3F4A5B6C7D8 /* Study */,
+				F9A0B1C2D3E4F5A6B7C8D9E0 /* Circle */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -265,6 +281,7 @@
 			isa = PBXGroup;
 			children = (
 				58688E69831D4460AA5AB9E5 /* DataModels.swift */,
+				A2B3C4D5E6F7A8B9C0D1E2F3 /* Post.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -438,6 +455,9 @@
 				E1F2A3B4C5D6E7F8A9B0C1D2 /* WorkoutView.swift in Sources */,
 				B4C5D6E7F8A9B0C1D2E3F4A5 /* StudyView.swift in Sources */,
 				A6B7C8D9E0F1A2B3C4D5E6F7 /* NotificationManager.swift in Sources */,
+				F1A2B3C4D5E6F7A8B9C0D1E2 /* Post.swift in Sources */,
+				B5C6D7E8F9A0B1C2D3E4F5A6 /* CircleAPI.swift in Sources */,
+				D7E8F9A0B1C2D3E4F5A6B7C8 /* CircleView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -603,6 +623,7 @@
 				DEVELOPMENT_ASSET_PATHS = "\"生存计划/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "生存计划/Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -631,6 +652,7 @@
 				DEVELOPMENT_ASSET_PATHS = "\"生存计划/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "生存计划/Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

@@ -25,9 +25,8 @@ struct WorkoutView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
+        ScrollView {
+            VStack(spacing: 16) {
                     // 周概览
                     HStack(spacing: 12) {
                         StatItem(value: "\(weekCount)", label: "本周打卡", color: .blue)
@@ -112,12 +111,11 @@ struct WorkoutView: View {
                     }
                     .padding()
                     .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
-                }
-                .padding()
             }
-            .scrollDismissesKeyboard(.immediately)
-            .navigationTitle("运动")
+            .padding()
         }
+        .scrollDismissesKeyboard(.immediately)
+        .navigationTitle("运动")
     }
     
     private var streakDays: Int {

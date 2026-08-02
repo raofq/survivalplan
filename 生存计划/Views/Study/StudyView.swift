@@ -21,9 +21,8 @@ struct StudyView: View {
     }
     
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
+        ScrollView {
+            VStack(spacing: 16) {
                     // 周概览
                     HStack(spacing: 12) {
                         StatItem(value: "\(records.count)", label: "累计学习", color: .blue)
@@ -110,12 +109,11 @@ struct StudyView: View {
                     }
                     .padding()
                     .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
-                }
-                .padding()
             }
-            .scrollDismissesKeyboard(.immediately)
-            .navigationTitle("学习")
+            .padding()
         }
+        .scrollDismissesKeyboard(.immediately)
+        .navigationTitle("学习")
     }
     
     private func saveStudy() {

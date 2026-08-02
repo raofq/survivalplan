@@ -7,7 +7,7 @@ struct SurvivalPlanApp: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(for: [UserProfile.self, ExpenseRecord.self, WorkoutRecord.self, StudyRecord.self])
+        .modelContainer(for: [UserProfile.self, ExpenseRecord.self, WorkoutRecord.self, StudyRecord.self, Post.self])
     }
 }
 

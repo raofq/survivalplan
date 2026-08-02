@@ -1,0 +1,24 @@
+import Foundation
+import SwiftData
+
+// MARK: - 圈子帖子（云端同步缓存）
+@Model
+final class Post {
+    var id: String = UUID().uuidString
+    var category: String = ""
+    var title: String = ""
+    var content: String = ""
+    var author: String = ""
+    var likes: Int = 0
+    var createdAt: Date = Date()
+
+    init(id: String = UUID().uuidString, category: String, title: String, content: String, author: String, likes: Int = 0, createdAt: Date = Date()) {
+        self.id = id
+        self.category = category
+        self.title = title
+        self.content = content
+        self.author = author
+        self.likes = likes
+        self.createdAt = createdAt
+    }
+}
