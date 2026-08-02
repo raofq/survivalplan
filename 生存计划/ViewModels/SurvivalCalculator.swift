@@ -39,16 +39,24 @@ struct MonthSnapshot: Identifiable {
 struct SurvivalCalculator {
     
     /// 计算某个月的具体收支（考虑时间窗口）
-    private static func monthFinances(profile: UserProfile, month: Int) -> (income: Double, essential: Double) {
-        // 收入：失业金仅在有额度且未到期时计入；兼职收入仅在开启开关时计入
-        var income = profile.spouseIncome + profile.otherIncome
-        if profile.hasPartTimeIncome {
-            income += profile.partTimeIncome
-        }
-        if profile.hasUnemploymentBenefit {
-            if profile.unemploymentBenefitMonths == 0 || month <= profile.unemploymentBenefitMonths {
-                income += profile.unemploymentBenefit
+    /// - Parameter simulatedJob: 模拟「找到工作」的收入切换（生效月起失业金/兼职停发，收入替换为新工资）
+    private static func monthFinances(profile: UserProfile, month: Int, simulatedJob: (income: Double, startMonth: Int)? = nil) -> (income: Double, essential: Double) {
+        let income: Double
+        if let job = simulatedJob, month >= job.startMonth {
+            // 找到工作后：失业金停发、兼职由新工作替代，收入 = 新工资 + 配偶 + 其他
+            income = job.income + profile.spouseIncome + profile.otherIncome
+        } else {
+            // 收入：失业金仅在有额度且未到期时计入；兼职收入仅在开启开关时计入
+            var base = profile.spouseIncome + profile.otherIncome
+            if profile.hasPartTimeIncome {
+                base += profile.partTimeIncome
             }
+            if profile.hasUnemploymentBenefit {
+                if profile.unemploymentBenefitMonths == 0 || month <= profile.unemploymentBenefitMonths {
+                    base += profile.unemploymentBenefit
+                }
+            }
+            income = base
         }
         
         // 刚性支出：房贷/车贷仅在有额度且未到期时计入
@@ -72,6 +80,11 @@ struct SurvivalCalculator {
     }
     
     static func calculate(from profile: UserProfile) -> SurvivalReport {
+        calculate(from: profile, simulatedJob: nil)
+    }
+
+    /// 内部计算入口，支持模拟收入切换
+    private static func calculate(from profile: UserProfile, simulatedJob: (income: Double, startMonth: Int)?) -> SurvivalReport {
         // 积蓄
         let totalSavings = profile.savings + profile.investments
         
@@ -84,7 +97,7 @@ struct SurvivalCalculator {
             + profile.shoppingBudget
         
         // 当前月（第1个月）的情况
-        let (currentIncome, currentEssential) = monthFinances(profile: profile, month: 1)
+        let (currentIncome, currentEssential) = monthFinances(profile: profile, month: 1, simulatedJob: simulatedJob)
         let currentTotal = currentEssential + flexible
         let currentShortfall = currentTotal - currentIncome
         
@@ -95,7 +108,7 @@ struct SurvivalCalculator {
         let maxProjection = 600 // 最多投影600个月（50年）
         
         for month in 1...maxProjection {
-            let (mIncome, mEssential) = monthFinances(profile: profile, month: month)
+            let (mIncome, mEssential) = monthFinances(profile: profile, month: month, simulatedJob: simulatedJob)
             let mTotal = mEssential + flexible
             let mNet = mIncome - mTotal
             
@@ -181,7 +194,7 @@ struct SurvivalCalculator {
         temp.unemploymentBenefit = profile.unemploymentBenefit
         temp.unemploymentBenefitMonths = profile.unemploymentBenefitMonths
         temp.hasPartTimeIncome = profile.hasPartTimeIncome
-        temp.partTimeIncome = changes.newMonthlyIncome ?? profile.partTimeIncome
+        temp.partTimeIncome = profile.partTimeIncome
         temp.spouseIncome = profile.spouseIncome
         temp.otherIncome = profile.otherIncome
         temp.savings = profile.savings + (changes.oneTimeIncome ?? 0)
@@ -212,7 +225,15 @@ struct SurvivalCalculator {
         temp.medicalBudget = profile.medicalBudget
         temp.educationBudget = profile.educationBudget
         
-        return calculate(from: temp)
+        // 模拟「找到工作」：生效月（第 N 个月）起收入切换为新工资
+        let simulatedJob: (income: Double, startMonth: Int)?
+        if let income = changes.newMonthlyIncome, income > 0 {
+            simulatedJob = (income, changes.findJobInMonths ?? 1)
+        } else {
+            simulatedJob = nil
+        }
+
+        return calculate(from: temp, simulatedJob: simulatedJob)
     }
 }
 
