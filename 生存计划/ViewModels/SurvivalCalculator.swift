@@ -37,14 +37,28 @@ struct MonthSnapshot: Identifiable {
 
 // MARK: - 生存计算器
 struct SurvivalCalculator {
+
+    /// 模拟「找到工作」的收入切换（支持试用期）
+    struct JobSimulation {
+        let startMonth: Int          // 第几个月开始上班
+        let probationMonths: Int     // 试用月数（0 = 无试用期）
+        let probationIncome: Double  // 试用期月薪
+        let regularIncome: Double    // 转正月薪
+    }
     
     /// 计算某个月的具体收支（考虑时间窗口）
     /// - Parameter simulatedJob: 模拟「找到工作」的收入切换（生效月起失业金/兼职停发，收入替换为新工资）
-    private static func monthFinances(profile: UserProfile, month: Int, simulatedJob: (income: Double, startMonth: Int)? = nil) -> (income: Double, essential: Double) {
+    private static func monthFinances(profile: UserProfile, month: Int, simulatedJob: JobSimulation? = nil) -> (income: Double, essential: Double) {
         let income: Double
         if let job = simulatedJob, month >= job.startMonth {
             // 找到工作后：失业金停发、兼职由新工作替代，收入 = 新工资 + 配偶 + 其他
-            income = job.income + profile.spouseIncome + profile.otherIncome
+            let jobIncome: Double
+            if job.probationMonths > 0 && month < job.startMonth + job.probationMonths {
+                jobIncome = job.probationIncome
+            } else {
+                jobIncome = job.regularIncome
+            }
+            income = jobIncome + profile.spouseIncome + profile.otherIncome
         } else {
             // 收入：失业金仅在有额度且未到期时计入；兼职收入仅在开启开关时计入
             var base = profile.spouseIncome + profile.otherIncome
@@ -84,7 +98,7 @@ struct SurvivalCalculator {
     }
 
     /// 内部计算入口，支持模拟收入切换
-    private static func calculate(from profile: UserProfile, simulatedJob: (income: Double, startMonth: Int)?) -> SurvivalReport {
+    private static func calculate(from profile: UserProfile, simulatedJob: JobSimulation?) -> SurvivalReport {
         // 积蓄
         let totalSavings = profile.savings + profile.investments
         
@@ -244,11 +258,32 @@ struct SurvivalCalculator {
         if changes.extraMonthlyRepayment > 0 {
             temp.privateLoanDebt += changes.extraMonthlyRepayment
         }
+
+        // 分类级削减（优先于总额削减）
+        if !changes.categoryCuts.isEmpty {
+            for (cat, cut) in changes.categoryCuts {
+                switch cat {
+                case "食品": temp.foodBudget = max(0, profile.foodBudget - cut)
+                case "交通": temp.transportBudget = max(0, profile.transportBudget - cut)
+                case "医疗": temp.medicalBudget = max(0, profile.medicalBudget - cut)
+                case "教育": temp.educationBudget = max(0, profile.educationBudget - cut)
+                case "人情": temp.socialBudget = max(0, profile.socialBudget - cut)
+                case "购物": temp.shoppingBudget = max(0, profile.shoppingBudget - cut)
+                default: break
+                }
+            }
+        }
         
         // 模拟「找到工作」：生效月（第 N 个月）起收入切换为新工资
-        let simulatedJob: (income: Double, startMonth: Int)?
+        let simulatedJob: JobSimulation?
         if let income = changes.newMonthlyIncome, income > 0 {
-            simulatedJob = (income, changes.findJobInMonths ?? 1)
+            let hasProbation = changes.probationMonths > 0 && (changes.probationIncome ?? 0) > 0
+            simulatedJob = JobSimulation(
+                startMonth: changes.findJobInMonths ?? 1,
+                probationMonths: hasProbation ? changes.probationMonths : 0,
+                probationIncome: hasProbation ? (changes.probationIncome ?? income) : income,
+                regularIncome: income
+            )
         } else {
             simulatedJob = nil
         }
@@ -262,6 +297,9 @@ struct SimulatedChanges {
     var reduceMonthlyExpense: Double?       // 每月削减开支
     var oneTimeIncome: Double?              // 一次性收入（卖车等）
     var findJobInMonths: Int?               // 几个月后找到工作
+    var probationIncome: Double?            // 试用期月薪（nil = 无试用期）
+    var probationMonths: Int = 0            // 试用月数
+    var categoryCuts: [String: Double] = [:] // 分类级削减：分类 → 每月削减金额
 
     // 场景预设（精细控制）
     var removeCarLoan: Bool = false         // 卖车：车贷消失

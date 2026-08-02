@@ -5,7 +5,12 @@ struct SimulatorView: View {
     let profile: UserProfile
     
     @State private var newJobIncome: Double = 0
-    @State private var reduceExpense: Double = 0
+    @State private var probationIncome: Double = 0
+    @State private var probationMonths: Int = 0
+    @State private var foodCut: Double = 0
+    @State private var transportCut: Double = 0
+    @State private var shoppingCut: Double = 0
+    @State private var socialCut: Double = 0
     @State private var oneTimeIncome: Double = 0
     @State private var findJobInMonths: Int = 3
     @State private var showResult = false
@@ -70,28 +75,35 @@ struct SimulatorView: View {
                                     .font(.subheadline)
                             }
                         }
-                        
+
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("每月削减多少开支？")
+                            Text("试用期（选填）")
                                 .font(.subheadline)
                             HStack {
-                                TextField("削减金额", value: $reduceExpense, format: .number)
+                                TextField("试用期月薪", value: $probationIncome, format: .number)
                                     .keyboardType(.decimalPad)
                                     .textFieldStyle(.roundedBorder)
                                 Text("元/月")
                                     .font(.subheadline)
                             }
+                            Picker("", selection: $probationMonths) {
+                                Text("无试用期").tag(0)
+                                Text("1个月").tag(1)
+                                Text("2个月").tag(2)
+                                Text("3个月").tag(3)
+                                Text("6个月").tag(6)
+                            }
+                            .pickerStyle(.segmented)
                         }
-                        
+
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("一次性收入（卖车/借款等）")
+                            Text("削减开支（按分类）")
                                 .font(.subheadline)
-                            HStack {
-                                TextField("金额", value: $oneTimeIncome, format: .number)
-                                    .keyboardType(.decimalPad)
-                                    .textFieldStyle(.roundedBorder)
-                                Text("元")
-                                    .font(.subheadline)
+                            HStack(spacing: 8) {
+                                cutField("食品", value: $foodCut)
+                                cutField("交通", value: $transportCut)
+                                cutField("购物", value: $shoppingCut)
+                                cutField("人情", value: $socialCut)
                             }
                         }
                         
@@ -279,13 +291,34 @@ struct SimulatorView: View {
     
     private func calculate() {
         hideKeyboard()
+        var categoryCuts: [String: Double] = [:]
+        if foodCut > 0 { categoryCuts["食品"] = foodCut }
+        if transportCut > 0 { categoryCuts["交通"] = transportCut }
+        if shoppingCut > 0 { categoryCuts["购物"] = shoppingCut }
+        if socialCut > 0 { categoryCuts["人情"] = socialCut }
+
         let changes = SimulatedChanges(
             newMonthlyIncome: newJobIncome > 0 ? newJobIncome : nil,
-            reduceMonthlyExpense: reduceExpense > 0 ? reduceExpense : nil,
-            oneTimeIncome: oneTimeIncome > 0 ? oneTimeIncome : nil,
-            findJobInMonths: newJobIncome > 0 ? findJobInMonths : nil
+            oneTimeIncome: nil,
+            findJobInMonths: newJobIncome > 0 ? findJobInMonths : nil,
+            probationIncome: probationMonths > 0 && probationIncome > 0 ? probationIncome : nil,
+            probationMonths: probationMonths,
+            categoryCuts: categoryCuts
         )
         simulatedReport = SurvivalCalculator.simulate(profile: profile, changes: changes)
+    }
+
+    private func cutField(_ label: String, value: Binding<Double>) -> some View {
+        VStack(spacing: 2) {
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            TextField("0", value: value, format: .number)
+                .keyboardType(.numberPad)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 64)
+                .multilineTextAlignment(.center)
+        }
     }
 
     private func stopShopping() {
