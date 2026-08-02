@@ -244,7 +244,7 @@ struct ProfileEditorView: View {
                 labeledField("私人借款", value: $local.privateLoanDebt, suffix: "元/月")
             }
 
-            Section("预期") {
+            Section("求职预期") {
                 Picker("预计多久能找到工作", selection: $local.expectedMonthsBeforeJob) {
                     Text("1个月").tag(1)
                     Text("3个月").tag(3)
