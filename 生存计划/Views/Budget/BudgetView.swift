@@ -55,6 +55,36 @@ struct BudgetView: View {
                     }
                     .padding()
                     .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
+
+                    // 月底支出预测
+                    if let prediction = monthlyPrediction {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Image(systemName: "chart.xyaxis.line")
+                                Text("月底支出预测")
+                                    .font(.headline)
+                                Spacer()
+                            }
+
+                            HStack(spacing: 0) {
+                                StatItem(value: formatCurrency(prediction.projectedTotal), label: "预计月底", color: prediction.isOver ? .red : .blue)
+                                StatItem(value: formatCurrency(prediction.monthlyBudget), label: "月度预算", color: .gray)
+                                StatItem(value: formatCurrency(prediction.diff), label: prediction.isOver ? "超支" : "结余", color: prediction.isOver ? .red : .green)
+                            }
+
+                            if prediction.isOver {
+                                Label("按当前消费速度，月底将超支 ¥\(Int(prediction.diff))，建议控制支出", systemImage: "exclamationmark.triangle.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.red)
+                            } else {
+                                Label("按当前消费速度，月底预计结余 ¥\(Int(prediction.diff))", systemImage: "checkmark.circle.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.green)
+                            }
+                        }
+                        .padding()
+                        .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
+                    }
                     
                     // 支出趋势（最近7天）
                     VStack(alignment: .leading, spacing: 12) {
@@ -94,6 +124,28 @@ struct BudgetView: View {
             return (date, total)
         }
     }
+
+    /// 月底支出预测：用最近30天日均支出外推当月总额
+    private var monthlyPrediction: (projectedTotal: Double, monthlyBudget: Double, diff: Double, isOver: Bool)? {
+        let calendar = Calendar.current
+        let cutoff = calendar.date(byAdding: .day, value: -30, to: Date()) ?? Date()
+        let recent = expenses.filter { $0.date >= cutoff }
+        guard !recent.isEmpty else { return nil }
+
+        let dailyAvg = recent.reduce(0.0) { $0 + $1.amount } / 30.0
+        let daysInMonth = calendar.range(of: .day, in: .month, for: Date())?.count ?? 30
+        let projectedTotal = dailyAvg * Double(daysInMonth)
+
+        let report = SurvivalCalculator.calculate(from: profile)
+        let budget = report.totalMonthlyExpenses
+        let diff = projectedTotal - budget
+
+        return (projectedTotal, budget, diff, diff > 0)
+    }
+
+    private func formatCurrency(_ value: Double) -> String {
+        "¥\(Int(value))"
+    }
 }
 
 struct BudgetProgressRow: View {
@@ -102,6 +154,16 @@ struct BudgetProgressRow: View {
     let spent: Double
     
     var pct: Double { budget > 0 ? spent / budget : 0 }
+    var healthText: String {
+        if pct > 1 { return "超支" }
+        if pct > 0.8 { return "接近上限" }
+        return "正常"
+    }
+    var healthColor: Color {
+        if pct > 1 { return .red }
+        if pct > 0.8 { return .orange }
+        return .green
+    }
     
     var body: some View {
         VStack(spacing: 4) {
@@ -109,6 +171,12 @@ struct BudgetProgressRow: View {
                 Text(label)
                     .font(.subheadline)
                 Spacer()
+                Text(healthText)
+                    .font(.caption2)
+                    .foregroundStyle(healthColor)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(healthColor.opacity(0.12), in: .capsule)
                 Text("¥\(Int(spent)) / ¥\(Int(budget))")
                     .font(.caption)
                     .foregroundStyle(pct > 1 ? .red : .secondary)
