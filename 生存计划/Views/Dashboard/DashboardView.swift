@@ -231,7 +231,10 @@ struct DailyBudgetCard: View {
     let report: SurvivalReport
     let spentToday: Double
 
-    private var remaining: Double { report.dailyBudget - spentToday }
+    // 今日可用 = 弹性预算分摊（刚性不可控，不参与可用额度）
+    private var flexibleDaily: Double { report.flexibleExpenses / 30.0 }
+    private var essentialDaily: Double { report.essentialExpenses / 30.0 }
+    private var remaining: Double { flexibleDaily - spentToday }
     private var isOver: Bool { remaining < 0 }
     
     var body: some View {
@@ -248,7 +251,7 @@ struct DailyBudgetCard: View {
             }
 
             HStack {
-                Text("已用 \(formatCurrency(spentToday)) / 预算 \(formatCurrency(report.dailyBudget))")
+                Text("已用 \(formatCurrency(spentToday)) / 可花 \(formatCurrency(flexibleDaily))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -259,7 +262,14 @@ struct DailyBudgetCard: View {
                         .foregroundStyle(.red)
                 }
             }
-            
+
+            HStack {
+                Image(systemName: "lock.fill")
+                Text("固定支出 \(formatCurrency(essentialDaily)) / 天（房贷、物业等，不含在可花额度内）")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
         }
         .padding()
         .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
