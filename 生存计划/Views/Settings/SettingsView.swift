@@ -77,7 +77,7 @@ struct SettingsView: View {
                     NavigationLink {
                         BudgetAdjustView(profile: profile)
                     } label: {
-                        Label("预算调整", systemImage: "wallet.bifold.fill")
+                        Label("预算调整", systemImage: "slider.horizontal.3")
                     }
 
                     NavigationLink {
