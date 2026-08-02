@@ -22,7 +22,7 @@ struct DashboardView: View {
                     OverviewCard(report: report)
                     
                     // 本月可用预算走势
-                    FundTimelineCard(report: report, spentToday: todaySpent)
+                    FundTimelineCard(report: report, expenses: expenses)
 
                     // 今日预算 + 快速记账 + 今日支出（合并模块）
                     DailyBudgetCard(report: report, spentToday: todaySpent, categorySpent: todaySpentByCategory)
@@ -157,7 +157,7 @@ struct StatItem: View {
 // MARK: - 本月可用预算走势卡
 struct FundTimelineCard: View {
     let report: SurvivalReport
-    let spentToday: Double
+    let expenses: [ExpenseRecord]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -166,7 +166,7 @@ struct FundTimelineCard: View {
                 Text("本月可用预算走势")
                     .font(.headline)
                 Spacer()
-                Text("今天至月底")
+                Text("月初至今")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -210,62 +210,58 @@ struct FundTimelineCard: View {
             }
             .frame(height: 160)
 
-            if remainingToday < 0 {
-                Label("今日已超支，可用预算为负，建议立即控制支出", systemImage: "exclamationmark.triangle.fill")
+            HStack {
+                Text("已花 \(formatCurrency(monthSpent)) / \(formatCurrency(monthBudget))")
                     .font(.caption)
-                    .foregroundStyle(.red)
-            } else if remainingToday == 0 {
-                Label("今日预算已用完", systemImage: "exclamationmark.circle.fill")
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("剩余 \(formatCurrency(max(monthBudget - monthSpent, 0)))")
                     .font(.caption)
-                    .foregroundStyle(.orange)
-            } else {
-                Label("本月还可花 ¥\(Int(monthRemainingTotal))", systemImage: "checkmark.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.green)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(monthSpent > monthBudget ? .red : .green)
             }
         }
         .padding()
         .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
     }
 
-    private var remainingToday: Double {
-        report.dailyBudget - spentToday
+    private var monthBudget: Double {
+        report.totalMonthlyExpenses
     }
 
-    /// 本月剩余总预算（剩余天数 × 每日预算 − 今日已花）
-    private var monthRemainingTotal: Double {
-        Double(daysLeft) * report.dailyBudget - spentToday
+    private var monthSpent: Double {
+        monthExpenses.reduce(0) { $0 + $1.amount }
     }
 
-    private var daysLeft: Int {
+    private var monthExpenses: [ExpenseRecord] {
         let calendar = Calendar.current
-        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: Date()), to: monthEnd).day ?? 0
-        return max(days + 1, 1)  // 含今天
+        return expenses.filter { calendar.isDate($0.date, equalTo: Date(), toGranularity: .month) }
     }
 
-    private var monthEnd: Date {
-        let calendar = Calendar.current
-        let startOfToday = calendar.startOfDay(for: Date())
-        guard let nextMonth = calendar.date(byAdding: .month, value: 1, to: startOfToday),
-              let end = calendar.date(byAdding: .day, value: -1, to: nextMonth) else {
-            return startOfToday
-        }
-        return end
-    }
-
-    /// 本月剩余总预算走势（今天为实际总额，之后随日子递减）
+    /// 月预算剩余走势：从月初到今天，Y = 月预算 − 当日累计支出
     private var monthlyBudgetPoints: [(date: Date, remaining: Double)] {
         let calendar = Calendar.current
+        let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: Date())) ?? Date()
+        let today = calendar.startOfDay(for: Date())
+
         var points: [(date: Date, remaining: Double)] = []
-        for i in 0..<daysLeft {
-            let date = calendar.date(byAdding: .day, value: i, to: calendar.startOfDay(for: Date())) ?? Date()
-            let futureDays = daysLeft - i
-            let remaining = i == 0
-                ? Double(futureDays) * report.dailyBudget - spentToday
-                : Double(futureDays) * report.dailyBudget
-            points.append((date, max(remaining, 0)))
+        var day = monthStart
+        var cumulativeSpent = 0.0
+        var guardCount = 0
+
+        while day <= today && guardCount < 31 {
+            let daySpent = monthExpenses.filter { calendar.isDate($0.date, inSameDayAs: day) }
+                .reduce(0.0) { $0 + $1.amount }
+            cumulativeSpent += daySpent
+            points.append((day, max(monthBudget - cumulativeSpent, 0)))
+            day = calendar.date(byAdding: .day, value: 1, to: day) ?? today
+            guardCount += 1
         }
         return points
+    }
+
+    private func formatCurrency(_ value: Double) -> String {
+        "¥\(Int(value))"
     }
 }
 
