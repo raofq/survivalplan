@@ -334,18 +334,20 @@ struct QuickExpenseCard: View {
                     .foregroundStyle(.secondary)
             }
             
-            HStack(spacing: 8) {
-                ForEach(categories, id: \.self) { cat in
-                    Button {
-                        category = cat
-                        showSheet = true
-                    } label: {
-                        Text(cat.map { String($0) }.joined(separator: "\n"))
-                            .font(.caption)
-                            .multilineTextAlignment(.center)
-                            .frame(width: 34, height: 46)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(categories, id: \.self) { cat in
+                        Button {
+                            category = cat
+                            showSheet = true
+                        } label: {
+                            Text(cat.map { String($0) }.joined(separator: "\n"))
+                                .font(.caption)
+                                .multilineTextAlignment(.center)
+                                .frame(width: 34, height: 46)
+                        }
+                        .buttonStyle(.bordered)
                     }
-                    .buttonStyle(.bordered)
                 }
             }
             .sheet(isPresented: $showSheet) {
