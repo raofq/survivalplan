@@ -50,6 +50,7 @@ struct BudgetView: View {
                         BudgetProgressRow(label: "食品", budget: report.foodBudget * 30, spent: categoryTotal("食品"))
                         BudgetProgressRow(label: "交通", budget: report.transportBudget * 30, spent: categoryTotal("交通"))
                         BudgetProgressRow(label: "医疗", budget: report.medicalBudget * 30, spent: categoryTotal("医疗"))
+                        BudgetProgressRow(label: "教育", budget: report.educationBudget * 30, spent: categoryTotal("教育"))
                         BudgetProgressRow(label: "人情", budget: report.socialBudget * 30, spent: categoryTotal("人情"))
                         BudgetProgressRow(label: "购物", budget: report.shoppingBudget * 30, spent: categoryTotal("购物"))
                     }

@@ -19,6 +19,7 @@ struct SurvivalReport {
     let foodBudget: Double
     let transportBudget: Double
     let medicalBudget: Double
+    let educationBudget: Double
     let socialBudget: Double
     let shoppingBudget: Double
     
@@ -145,6 +146,7 @@ struct SurvivalCalculator {
         let foodPct = total > 0 ? profile.foodBudget / total : 0
         let transportPct = total > 0 ? profile.transportBudget / total : 0
         let medicalPct = total > 0 ? profile.medicalBudget / total : 0
+        let educationPct = total > 0 ? profile.educationBudget / total : 0
         let socialPct = total > 0 ? profile.socialBudget / total : 0
         let shoppingPct = total > 0 ? profile.shoppingBudget / total : 0
         
@@ -164,6 +166,7 @@ struct SurvivalCalculator {
             foodBudget: daily * foodPct,
             transportBudget: daily * transportPct,
             medicalBudget: daily * medicalPct,
+            educationBudget: daily * educationPct,
             socialBudget: daily * socialPct,
             shoppingBudget: daily * shoppingPct,
             timeline: timeline
