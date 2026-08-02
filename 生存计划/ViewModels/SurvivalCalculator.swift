@@ -243,3 +243,26 @@ struct SimulatedChanges {
     var oneTimeIncome: Double?              // 一次性收入（卖车等）
     var findJobInMonths: Int?               // 几个月后找到工作
 }
+
+// MARK: - 目标反推
+struct SurvivalTarget {
+    let targetMonths: Int          // 目标撑几个月
+    let monthlySpendable: Double   // 积蓄 ÷ 目标月数 = 每月最多可花
+    let cutNeeded: Double          // 需要削减的月支出（>0 表示还差，<=0 表示已达标）
+    let isAchievable: Bool
+}
+
+extension SurvivalCalculator {
+    /// 目标反推：给定目标月数，计算每月最多可花多少、还差多少需要削减/增收
+    static func projectTarget(profile: UserProfile, targetMonths: Int) -> SurvivalTarget {
+        let report = calculate(from: profile)
+        let monthlySpendable = report.totalSavings / Double(max(targetMonths, 1))
+        let cutNeeded = report.totalMonthlyExpenses - monthlySpendable
+        return SurvivalTarget(
+            targetMonths: targetMonths,
+            monthlySpendable: monthlySpendable,
+            cutNeeded: cutNeeded,
+            isAchievable: cutNeeded <= 0
+        )
+    }
+}

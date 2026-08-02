@@ -10,9 +10,14 @@ struct SimulatorView: View {
     @State private var findJobInMonths: Int = 3
     @State private var showResult = false
     @State private var simulatedReport: SurvivalReport?
+    @State private var targetMonths: Int = 12
     
     private var currentReport: SurvivalReport {
         SurvivalCalculator.calculate(from: profile)
+    }
+
+    private var targetResult: SurvivalTarget? {
+        SurvivalCalculator.projectTarget(profile: profile, targetMonths: targetMonths)
     }
     
     var body: some View {
@@ -93,6 +98,58 @@ struct SimulatorView: View {
                                 Text("12个月").tag(12)
                             }
                             .pickerStyle(.segmented)
+                        }
+                    }
+                    .padding()
+                    .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
+
+                    // 目标反推
+                    VStack(spacing: 14) {
+                        HStack {
+                            Image(systemName: "target")
+                            Text("目标反推")
+                                .font(.headline)
+                            Spacer()
+                        }
+
+                        Text("目标：撑过多少个月？")
+                            .font(.subheadline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        Picker("", selection: $targetMonths) {
+                            Text("6个月").tag(6)
+                            Text("12个月").tag(12)
+                            Text("18个月").tag(18)
+                            Text("24个月").tag(24)
+                        }
+                        .pickerStyle(.segmented)
+
+                        if let target = targetResult {
+                            Divider()
+
+                            HStack {
+                                Text("每月最多可花")
+                                Spacer()
+                                Text("¥\(Int(target.monthlySpendable))")
+                                    .fontWeight(.bold)
+                                    .foregroundStyle(.blue)
+                            }
+                            .font(.subheadline)
+
+                            if target.isAchievable {
+                                Label("当前资金可撑 \(target.targetMonths) 个月，每月还可结余 ¥\(Int(-target.cutNeeded))", systemImage: "checkmark.circle.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.green)
+                            } else {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Label("还差 ¥\(Int(target.cutNeeded)) / 月才能撑 \(target.targetMonths) 个月", systemImage: "exclamationmark.triangle.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(.red)
+                                    Label("建议：每月削减 ¥\(Int(target.cutNeeded))，或找到月薪至少 ¥\(Int(target.cutNeeded + currentReport.totalMonthlyIncome)) 的工作", systemImage: "lightbulb.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(.orange)
+                                }
+                            }
                         }
                     }
                     .padding()
