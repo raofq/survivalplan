@@ -171,59 +171,30 @@ struct FundTimelineCard: View {
                     .foregroundStyle(.secondary)
             }
 
-            Chart(monthlyBudgetPoints, id: \.day) { point in
-                AreaMark(
-                    x: .value("天数", point.day),
-                    y: .value("剩余资金", point.remaining)
-                )
-                .foregroundStyle(.blue.opacity(0.12))
-                .interpolationMethod(.monotone)
-
-                LineMark(
-                    x: .value("天数", point.day),
-                    y: .value("剩余资金", point.remaining)
-                )
-                .foregroundStyle(.blue)
-                .interpolationMethod(.monotone)
-                .lineStyle(StrokeStyle(lineWidth: 2))
-            }
-            .chartYAxis {
-                AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { value in
-                    AxisGridLine()
-                    AxisValueLabel {
-                        if let v = value.as(Double.self) {
-                            Text("¥\(Int(v))")
-                                .font(.caption2)
-                        }
-                    }
-                }
-            }
-            .chartYAxisLabel("剩余资金")
-            .chartXAxis {
-                AxisMarks(values: Array(1...daysInMonth)) { value in
-                    AxisValueLabel {
-                        if let day = value.as(Int.self) {
-                            Text("\(day)")
-                                .font(.caption2)
-                        }
-                    }
-                }
-            }
-            .frame(height: 160)
-
-            HStack {
-                Text("已花 \(formatCurrency(monthSpent)) / \(formatCurrency(monthBudget))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text("剩余 \(formatCurrency(max(monthBudget - monthSpent, 0)))")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(monthSpent > monthBudget ? .red : .green)
+            VStack(spacing: 10) {
+                row(label: "本月预算", value: formatCurrency(monthBudget), color: .primary)
+                row(label: "本月已花", value: formatCurrency(monthSpent), color: .red)
+                Divider()
+                row(label: "本月剩余", value: formatCurrency(max(monthBudget - monthSpent, 0)), color: monthSpent > monthBudget ? .red : .green, bold: true)
+                row(label: "剩余天数", value: "\(daysLeft) 天", color: .secondary)
+                row(label: "日均可用", value: formatCurrency(dailyRemaining), color: dailyRemaining < 0 ? .red : .blue)
             }
         }
         .padding()
         .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
+    }
+
+    private func row(label: String, value: String, color: Color, bold: Bool = false) -> some View {
+        HStack {
+            Text(label)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text(value)
+                .font(bold ? .headline : .subheadline)
+                .fontWeight(bold ? .bold : .regular)
+                .foregroundStyle(color)
+        }
     }
 
     private var monthBudget: Double {
@@ -234,6 +205,17 @@ struct FundTimelineCard: View {
         monthExpenses.reduce(0) { $0 + $1.amount }
     }
 
+    private var daysLeft: Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let dayOfMonth = calendar.component(.day, from: today)
+        return max(daysInMonth - dayOfMonth + 1, 0)
+    }
+
+    private var dailyRemaining: Double {
+        daysLeft > 0 ? (monthBudget - monthSpent) / Double(daysLeft) : 0
+    }
+
     private var monthExpenses: [ExpenseRecord] {
         let calendar = Calendar.current
         return expenses.filter { calendar.isDate($0.date, equalTo: Date(), toGranularity: .month) }
@@ -241,30 +223,6 @@ struct FundTimelineCard: View {
 
     private var daysInMonth: Int {
         Calendar.current.range(of: .day, in: .month, for: Date())?.count ?? 30
-    }
-
-    /// 月预算剩余走势：X = 当月全部天数（1..30/31），Y = 月预算 − 累计支出；
-    /// 今天之后无实际支出，剩余保持水平延伸至月底
-    private var monthlyBudgetPoints: [(day: Int, remaining: Double)] {
-        let calendar = Calendar.current
-        let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: Date())) ?? Date()
-        let today = calendar.startOfDay(for: Date())
-
-        var points: [(day: Int, remaining: Double)] = []
-        var day = monthStart
-        var cumulativeSpent = 0.0
-
-        for _ in 1...daysInMonth {
-            let dayNumber = calendar.component(.day, from: day)
-            if day <= today {
-                let daySpent = monthExpenses.filter { calendar.isDate($0.date, inSameDayAs: day) }
-                    .reduce(0.0) { $0 + $1.amount }
-                cumulativeSpent += daySpent
-            }
-            points.append((dayNumber, max(monthBudget - cumulativeSpent, 0)))
-            day = calendar.date(byAdding: .day, value: 1, to: day) ?? today
-        }
-        return points
     }
 
     private func formatCurrency(_ value: Double) -> String {
