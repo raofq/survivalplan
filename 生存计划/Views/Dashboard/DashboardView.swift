@@ -198,7 +198,8 @@ struct FundTimelineCard: View {
     }
 
     private var monthSpent: Double {
-        monthExpenses.reduce(0) { $0 + $1.amount }
+        // 本月已花 = 刚性支出（固定必花） + 记账弹性支出
+        report.essentialExpenses + monthExpenses.reduce(0) { $0 + $1.amount }
     }
 
     private var daysLeft: Int {
