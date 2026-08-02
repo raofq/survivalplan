@@ -21,6 +21,9 @@ struct DashboardView: View {
                     // 概览卡片
                     OverviewCard(report: report)
                     
+                    // 资金走势
+                    FundTimelineCard(report: report)
+
                     // 每日预算
                     DailyBudgetCard(report: report)
                     
@@ -144,6 +147,76 @@ struct StatItem: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+// MARK: - 资金走势卡
+struct FundTimelineCard: View {
+    let report: SurvivalReport
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "chart.line.downtrend.xyaxis")
+                Text("资金走势")
+                    .font(.headline)
+                Spacer()
+                Text("未来12个月")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Chart(Array(report.timeline.prefix(12))) { month in
+                AreaMark(
+                    x: .value("月份", month.id),
+                    y: .value("积蓄", month.savingsAfter)
+                )
+                .foregroundStyle(.blue.opacity(0.12))
+                .interpolationMethod(.monotone)
+
+                LineMark(
+                    x: .value("月份", month.id),
+                    y: .value("积蓄", month.savingsAfter)
+                )
+                .foregroundStyle(.blue)
+                .interpolationMethod(.monotone)
+                .lineStyle(StrokeStyle(lineWidth: 2))
+            }
+            .chartYAxis {
+                AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let v = value.as(Double.self) {
+                            Text("¥\(Int(v))")
+                                .font(.caption2)
+                        }
+                    }
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: .automatic(desiredCount: 6)) { value in
+                    AxisValueLabel {
+                        if let month = value.as(Int.self) {
+                            Text("\(month)月")
+                                .font(.caption2)
+                        }
+                    }
+                }
+            }
+            .frame(height: 160)
+
+            if report.monthsCanSurvive < 12 {
+                Label("资金将在第 \(Int(report.monthsCanSurvive)) 个月耗尽", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            } else {
+                Label("12 个月内资金充足", systemImage: "checkmark.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.green)
+            }
+        }
+        .padding()
+        .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
     }
 }
 
