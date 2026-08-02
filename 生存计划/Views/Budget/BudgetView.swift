@@ -128,11 +128,17 @@ struct BudgetView: View {
     /// 月底支出预测：用最近30天日均支出外推当月总额
     private var monthlyPrediction: (projectedTotal: Double, monthlyBudget: Double, diff: Double, isOver: Bool)? {
         let calendar = Calendar.current
-        let cutoff = calendar.date(byAdding: .day, value: -30, to: Date()) ?? Date()
-        let recent = expenses.filter { $0.date >= cutoff }
-        guard !recent.isEmpty else { return nil }
+        let today = calendar.startOfDay(for: Date())
+        guard let firstExpense = expenses.map(\.date).min() else { return nil }
 
-        let dailyAvg = recent.reduce(0.0) { $0 + $1.amount } / 30.0
+        // 实际覆盖天数：第一笔支出至今的天数（含首尾），封顶30天
+        let daysSinceFirst = calendar.dateComponents([.day], from: calendar.startOfDay(for: firstExpense), to: today).day ?? 0
+        let daysCovered = min(30, max(1, daysSinceFirst + 1))
+
+        let cutoff = calendar.date(byAdding: .day, value: -(daysCovered - 1), to: today) ?? today
+        let recent = expenses.filter { $0.date >= cutoff }
+
+        let dailyAvg = recent.reduce(0.0) { $0 + $1.amount } / Double(daysCovered)
         let daysInMonth = calendar.range(of: .day, in: .month, for: Date())?.count ?? 30
         let projectedTotal = dailyAvg * Double(daysInMonth)
 
