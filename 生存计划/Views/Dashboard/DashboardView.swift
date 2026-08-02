@@ -200,7 +200,7 @@ struct FundTimelineCard: View {
             }
             .chartYAxisLabel("剩余资金")
             .chartXAxis {
-                AxisMarks(values: .automatic(desiredCount: 6)) { value in
+                AxisMarks(values: Array(1...daysInMonth)) { value in
                     AxisValueLabel {
                         if let day = value.as(Int.self) {
                             Text("\(day)")
@@ -239,7 +239,12 @@ struct FundTimelineCard: View {
         return expenses.filter { calendar.isDate($0.date, equalTo: Date(), toGranularity: .month) }
     }
 
-    /// 月预算剩余走势：X = 当月天数（1..今天），Y = 月预算 − 当日累计支出
+    private var daysInMonth: Int {
+        Calendar.current.range(of: .day, in: .month, for: Date())?.count ?? 30
+    }
+
+    /// 月预算剩余走势：X = 当月全部天数（1..30/31），Y = 月预算 − 累计支出；
+    /// 今天之后无实际支出，剩余保持水平延伸至月底
     private var monthlyBudgetPoints: [(day: Int, remaining: Double)] {
         let calendar = Calendar.current
         let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: Date())) ?? Date()
@@ -248,16 +253,16 @@ struct FundTimelineCard: View {
         var points: [(day: Int, remaining: Double)] = []
         var day = monthStart
         var cumulativeSpent = 0.0
-        var guardCount = 0
 
-        while day <= today && guardCount < 31 {
+        for _ in 1...daysInMonth {
             let dayNumber = calendar.component(.day, from: day)
-            let daySpent = monthExpenses.filter { calendar.isDate($0.date, inSameDayAs: day) }
-                .reduce(0.0) { $0 + $1.amount }
-            cumulativeSpent += daySpent
+            if day <= today {
+                let daySpent = monthExpenses.filter { calendar.isDate($0.date, inSameDayAs: day) }
+                    .reduce(0.0) { $0 + $1.amount }
+                cumulativeSpent += daySpent
+            }
             points.append((dayNumber, max(monthBudget - cumulativeSpent, 0)))
             day = calendar.date(byAdding: .day, value: 1, to: day) ?? today
-            guardCount += 1
         }
         return points
     }
