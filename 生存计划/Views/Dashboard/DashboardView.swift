@@ -268,6 +268,7 @@ struct DailyBudgetCard: View {
     private func formatCurrency(_ value: Double) -> String {
         "¥\(Int(value))"
     }
+}
 
 // MARK: - 快速记账卡
 struct QuickExpenseCard: View {
