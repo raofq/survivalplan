@@ -24,14 +24,9 @@ struct DashboardView: View {
                     // 资金走势
                     FundTimelineCard(report: report)
 
-                    // 每日预算
-                    DailyBudgetCard(report: report)
-                    
-                    // 快速记账
-                    QuickExpenseCard(profile: profile, expenses: expenses)
-                    
-                    // 今日支出
-                    TodayExpenseCard(expenses: todayExpenses)
+                    // 今日预算 + 快速记账 + 今日支出（合并模块）
+                    DailyBudgetCard(report: report, spentToday: todaySpent)
+                    QuickExpenseCard(profile: profile, expenses: expenses, todayExpenses: todayExpenses)
                 }
                 .padding()
             }
@@ -48,6 +43,10 @@ struct DashboardView: View {
     
     private var todayExpenses: [ExpenseRecord] {
         expenses.filter { Calendar.current.isDateInToday($0.date) }
+    }
+
+    private var todaySpent: Double {
+        todayExpenses.reduce(0) { $0 + $1.amount }
     }
 }
 
@@ -223,6 +222,10 @@ struct FundTimelineCard: View {
 // MARK: - 每日预算卡
 struct DailyBudgetCard: View {
     let report: SurvivalReport
+    let spentToday: Double
+
+    private var remaining: Double { report.dailyBudget - spentToday }
+    private var isOver: Bool { remaining < 0 }
     
     var body: some View {
         VStack(spacing: 12) {
@@ -231,10 +234,23 @@ struct DailyBudgetCard: View {
                 Text("今日可用预算")
                     .font(.headline)
                 Spacer()
-                Text(formatCurrency(report.dailyBudget))
+                Text(formatCurrency(max(remaining, 0)))
                     .font(.title2)
                     .fontWeight(.bold)
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(isOver ? .red : .blue)
+            }
+
+            HStack {
+                Text("已用 \(formatCurrency(spentToday)) / 预算 \(formatCurrency(report.dailyBudget))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if isOver {
+                    Text("已超支 \(formatCurrency(-remaining))")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.red)
+                }
             }
             
             Divider()
@@ -289,6 +305,7 @@ struct BudgetRow: View {
 struct QuickExpenseCard: View {
     let profile: UserProfile
     let expenses: [ExpenseRecord]
+    let todayExpenses: [ExpenseRecord]
     @Environment(\.modelContext) private var modelContext
     @State private var showSheet = false
     @State private var amount = ""
@@ -352,6 +369,48 @@ struct QuickExpenseCard: View {
                 .background((fb.isWarning ? Color.red : Color.green).opacity(0.1), in: .rect(cornerRadius: 10))
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
+
+            // 今日支出列表
+            Divider()
+
+            HStack {
+                Text("今日支出")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Spacer()
+                Text("共 \(todayExpenses.count) 笔")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if todayExpenses.isEmpty {
+                Text("今天还没有支出记录")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 4)
+            } else {
+                ForEach(todayExpenses.prefix(6)) { expense in
+                    HStack {
+                        Text(expense.category)
+                            .font(.caption)
+                        if !expense.note.isEmpty {
+                            Text(expense.note)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
+                        Spacer()
+                        Text(formatCurrency(expense.amount))
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                    }
+                }
+                if todayExpenses.count > 6 {
+                    Text("还有 \(todayExpenses.count - 6) 笔…")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .padding()
         .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
@@ -395,42 +454,8 @@ struct QuickExpenseCard: View {
         default: return 0
         }
     }
-}
 
-// MARK: - 今日支出卡
-struct TodayExpenseCard: View {
-    let expenses: [ExpenseRecord]
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            HStack {
-                Image(systemName: "list.clipboard")
-                Text("今日支出")
-                    .font(.headline)
-                Spacer()
-                Text("共 \(expenses.count) 笔")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            
-            if expenses.isEmpty {
-                Text("今天还没有支出记录")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .padding(.vertical, 8)
-            } else {
-                ForEach(expenses) { expense in
-                    HStack {
-                        Text(expense.category)
-                            .font(.subheadline)
-                        Spacer()
-                        Text("¥\(Int(expense.amount))")
-                            .fontWeight(.semibold)
-                    }
-                }
-            }
-        }
-        .padding()
-        .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
+    private func formatCurrency(_ value: Double) -> String {
+        "¥\(Int(value))"
     }
 }
