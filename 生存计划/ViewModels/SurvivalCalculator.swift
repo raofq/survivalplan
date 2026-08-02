@@ -224,6 +224,26 @@ struct SurvivalCalculator {
         }
         temp.medicalBudget = profile.medicalBudget
         temp.educationBudget = profile.educationBudget
+
+        // 场景：卖车（车贷消失 + 一次性收入）
+        if changes.removeCarLoan {
+            temp.carLoan = 0
+            temp.carLoanRemainingMonths = 0
+            temp.savings += changes.carSaleAmount
+        }
+        // 场景：停购物/娱乐（购物+人情预算归零）
+        if changes.zeroOutShopping {
+            temp.shoppingBudget = 0
+            temp.socialBudget = 0
+        }
+        // 场景：停兴趣班（教育预算归零）
+        if changes.zeroOutEducation {
+            temp.educationBudget = 0
+        }
+        // 场景：借款月还款（计入刚性支出）
+        if changes.extraMonthlyRepayment > 0 {
+            temp.privateLoanDebt += changes.extraMonthlyRepayment
+        }
         
         // 模拟「找到工作」：生效月（第 N 个月）起收入切换为新工资
         let simulatedJob: (income: Double, startMonth: Int)?
@@ -242,6 +262,13 @@ struct SimulatedChanges {
     var reduceMonthlyExpense: Double?       // 每月削减开支
     var oneTimeIncome: Double?              // 一次性收入（卖车等）
     var findJobInMonths: Int?               // 几个月后找到工作
+
+    // 场景预设（精细控制）
+    var removeCarLoan: Bool = false         // 卖车：车贷消失
+    var carSaleAmount: Double = 0           // 卖车收入
+    var zeroOutShopping: Bool = false       // 停购物/娱乐：购物+人情归零
+    var zeroOutEducation: Bool = false      // 停兴趣班：教育归零
+    var extraMonthlyRepayment: Double = 0   // 借款月还款（新增刚性支出）
 }
 
 // MARK: - 目标反推

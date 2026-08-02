@@ -11,6 +11,13 @@ struct SimulatorView: View {
     @State private var showResult = false
     @State private var simulatedReport: SurvivalReport?
     @State private var targetMonths: Int = 12
+    @State private var activeScenario: Scenario?
+
+    enum Scenario: String, Identifiable {
+        case sellCar = "卖车"
+        case borrow = "借款"
+        var id: String { rawValue }
+    }
     
     private var currentReport: SurvivalReport {
         SurvivalCalculator.calculate(from: profile)
@@ -102,6 +109,58 @@ struct SimulatorView: View {
                     }
                     .padding()
                     .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
+
+                    // 场景预设
+                    VStack(spacing: 14) {
+                        HStack {
+                            Image(systemName: "square.grid.2x2.fill")
+                            Text("场景模拟")
+                                .font(.headline)
+                            Spacer()
+                        }
+
+                        HStack(spacing: 8) {
+                            Button {
+                                activeScenario = .sellCar
+                            } label: {
+                                Text("🚗 卖车")
+                            }
+                            .buttonStyle(.bordered)
+
+                            Button {
+                                stopShopping()
+                            } label: {
+                                Text("✂️ 停购物")
+                            }
+                            .buttonStyle(.bordered)
+
+                            Button {
+                                stopEducation()
+                            } label: {
+                                Text("🎒 停兴趣班")
+                            }
+                            .buttonStyle(.bordered)
+
+                            Button {
+                                activeScenario = .borrow
+                            } label: {
+                                Text("💰 借款")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        .font(.caption)
+
+                        Text("点击场景立即模拟，可叠加「找到工作」一起算")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding()
+                    .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
+                    .sheet(item: $activeScenario) { scenario in
+                        ScenarioSheet(scenario: scenario) { params in
+                            applyScenario(scenario, params: params)
+                        }
+                    }
 
                     // 目标反推
                     VStack(spacing: 14) {
@@ -228,6 +287,32 @@ struct SimulatorView: View {
         )
         simulatedReport = SurvivalCalculator.simulate(profile: profile, changes: changes)
     }
+
+    private func stopShopping() {
+        hideKeyboard()
+        let changes = SimulatedChanges(zeroOutShopping: true)
+        simulatedReport = SurvivalCalculator.simulate(profile: profile, changes: changes)
+    }
+
+    private func stopEducation() {
+        hideKeyboard()
+        let changes = SimulatedChanges(zeroOutEducation: true)
+        simulatedReport = SurvivalCalculator.simulate(profile: profile, changes: changes)
+    }
+
+    private func applyScenario(_ scenario: Scenario, params: [String: Double]) {
+        hideKeyboard()
+        var changes = SimulatedChanges()
+        switch scenario {
+        case .sellCar:
+            changes.removeCarLoan = true
+            changes.carSaleAmount = params["amount"] ?? 0
+        case .borrow:
+            changes.oneTimeIncome = params["amount"] ?? 0
+            changes.extraMonthlyRepayment = params["repayment"] ?? 0
+        }
+        simulatedReport = SurvivalCalculator.simulate(profile: profile, changes: changes)
+    }
     
     private func hideKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
@@ -306,5 +391,58 @@ struct TimelineComparisonChart: View {
         }
         .padding()
         .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
+    }
+}
+
+// MARK: - 场景参数输入
+struct ScenarioSheet: View {
+    let scenario: SimulatorView.Scenario
+    let onApply: ([String: Double]) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var amount = ""
+    @State private var repayment = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                switch scenario {
+                case .sellCar:
+                    Section("卖车收入") {
+                        TextField("卖车金额（元）", text: $amount)
+                            .keyboardType(.decimalPad)
+                        Text("模拟效果：车贷消失 + 一次性卖车收入")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                case .borrow:
+                    Section("借款") {
+                        TextField("借款总额（元）", text: $amount)
+                            .keyboardType(.decimalPad)
+                        TextField("每月还款（元）", text: $repayment)
+                            .keyboardType(.decimalPad)
+                        Text("模拟效果：一次性入账 + 每月新增还款支出")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .navigationTitle(scenario.rawValue)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("模拟") {
+                        var params: [String: Double] = [:]
+                        if let a = Double(amount) { params["amount"] = a }
+                        if let r = Double(repayment) { params["repayment"] = r }
+                        onApply(params)
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .presentationDetents([.height(280)])
     }
 }
