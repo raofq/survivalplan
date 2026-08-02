@@ -206,11 +206,15 @@ struct FundTimelineCard: View {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         let dayOfMonth = calendar.component(.day, from: today)
-        return max(daysInMonth - dayOfMonth + 1, 0)
+        return max(daysInMonth - dayOfMonth + 1, 0)   // 含今天（用于展示）
+    }
+
+    private var futureDays: Int {
+        max(daysLeft - 1, 1)   // 不含今天（用于日均可用）
     }
 
     private var dailyRemaining: Double {
-        daysLeft > 0 ? (monthBudget - monthSpent) / Double(daysLeft) : 0
+        futureDays > 0 ? (monthBudget - monthSpent) / Double(futureDays) : 0
     }
 
     private var monthExpenses: [ExpenseRecord] {
@@ -252,7 +256,7 @@ struct DailyBudgetCard: View {
             }
 
             HStack {
-                Text("已用 \(formatCurrency(spentToday)) / 可花 \(formatCurrency(flexibleDaily))")
+                Text("已用 \(formatCurrency(spentToday)) / 额度 \(formatCurrency(flexibleDaily))")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -266,7 +270,7 @@ struct DailyBudgetCard: View {
 
             HStack {
                 Image(systemName: "lock.fill")
-                Text("固定支出 \(formatCurrency(essentialDaily)) / 天（房贷、物业等，不含在可花额度内）")
+                Text("固定支出 \(formatCurrency(essentialDaily)) / 天（房贷、物业等，不含在可用额度内）")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 Spacer()
