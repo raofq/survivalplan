@@ -163,7 +163,7 @@ struct FundTimelineCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "calendar.badge.clock")
-                Text("本月可用预算走势")
+                Text("本月剩余预算")
                     .font(.headline)
                 Spacer()
                 Text("月初至今")
@@ -203,7 +203,7 @@ struct FundTimelineCard: View {
                 AxisMarks(values: .automatic(desiredCount: 6)) { value in
                     AxisValueLabel {
                         if let day = value.as(Int.self) {
-                            Text("\(day)日")
+                            Text("\(day)")
                                 .font(.caption2)
                         }
                     }
