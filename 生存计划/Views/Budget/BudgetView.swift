@@ -69,7 +69,7 @@ struct BudgetView: View {
                             HStack(spacing: 0) {
                                 StatItem(value: formatCurrency(prediction.projectedTotal), label: "预计月底", color: prediction.isOver ? .red : .blue)
                                 StatItem(value: formatCurrency(prediction.monthlyBudget), label: "月度预算", color: .gray)
-                                StatItem(value: formatCurrency(prediction.diff), label: prediction.isOver ? "超支" : "结余", color: prediction.isOver ? .red : .green)
+                                StatItem(value: formatCurrency(abs(prediction.diff)), label: prediction.isOver ? "超支" : "结余", color: prediction.isOver ? .red : .green)
                             }
 
                             if prediction.isOver {
@@ -77,7 +77,7 @@ struct BudgetView: View {
                                     .font(.caption)
                                     .foregroundStyle(.red)
                             } else {
-                                Label("按当前消费速度，月底预计结余 ¥\(Int(prediction.diff))", systemImage: "checkmark.circle.fill")
+                                Label("按当前消费速度，月底预计结余 ¥\(Int(abs(prediction.diff)))", systemImage: "checkmark.circle.fill")
                                     .font(.caption)
                                     .foregroundStyle(.green)
                             }
