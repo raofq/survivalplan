@@ -23,6 +23,7 @@
 		A8B2C4D01A2B4C5D6E7F8901 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9C3D5E7F1A2B4C6D8E0F2A4 /* SettingsView.swift */; };
 		E1F2A3B4C5D6E7F8A9B0C1D2 /* WorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A3B4C5D6E7F8A9B0C1D2E3 /* WorkoutView.swift */; };
 		B4C5D6E7F8A9B0C1D2E3F4A5 /* StudyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5D6E7F8A9B0C1D2E3F4A5B6 /* StudyView.swift */; };
+		A6B7C8D9E0F1A2B3C4D5E6F7 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E0F1A2B3C4D5E6F7A8 /* NotificationManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,6 +63,7 @@
 		B9C3D5E7F1A2B4C6D8E0F2A4 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		F2A3B4C5D6E7F8A9B0C1D2E3 /* WorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutView.swift; sourceTree = "<group>"; };
 		C5D6E7F8A9B0C1D2E3F4A5B6 /* StudyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyView.swift; sourceTree = "<group>"; };
+		B7C8D9E0F1A2B3C4D5E6F7A8 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -140,10 +142,19 @@
 				07643D591C9D429B87D80F4F /* Models */,
 				7FF77D886347499BADD2FC3B /* ViewModels */,
 				ED7EEE77F92F419A952E6F2F /* Views */,
+				C8D9E0F1A2B3C4D5E6F7A8B9 /* Services */,
 				470ADADB3014A60500113519 /* Assets.xcassets */,
 				470ADADD3014A60500113519 /* Preview Content */,
 			);
 			path = "生存计划";
+			sourceTree = "<group>";
+		};
+		C8D9E0F1A2B3C4D5E6F7A8B9 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				B7C8D9E0F1A2B3C4D5E6F7A8 /* NotificationManager.swift */,
+			);
+			path = Services;
 			sourceTree = "<group>";
 		};
 		470ADADD3014A60500113519 /* Preview Content */ = {
@@ -426,6 +437,7 @@
 				A8B2C4D01A2B4C5D6E7F8901 /* SettingsView.swift in Sources */,
 				E1F2A3B4C5D6E7F8A9B0C1D2 /* WorkoutView.swift in Sources */,
 				B4C5D6E7F8A9B0C1D2E3F4A5 /* StudyView.swift in Sources */,
+				A6B7C8D9E0F1A2B3C4D5E6F7 /* NotificationManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

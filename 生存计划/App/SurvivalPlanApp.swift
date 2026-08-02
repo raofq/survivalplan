@@ -7,7 +7,7 @@ struct SurvivalPlanApp: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(for: [UserProfile.self, ExpenseRecord.self])
+        .modelContainer(for: [UserProfile.self, ExpenseRecord.self, WorkoutRecord.self, StudyRecord.self])
     }
 }
 
@@ -21,6 +21,10 @@ struct ContentView: View {
             MainTabView(profile: profile)
                 .sheet(isPresented: $showOnboarding) {
                     OnboardingView(profile: profile)
+                }
+                .onAppear {
+                    NotificationManager.requestAuthorization()
+                    NotificationManager.scheduleAll(profile: profile)
                 }
         } else {
             WelcomeView()
