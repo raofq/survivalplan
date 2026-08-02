@@ -331,21 +331,6 @@ struct DebtAndGoalView: View {
                 HStack { Text("网贷"); Spacer(); NumberField(value: $profile.onlineLoanDebt); Text("元/月") }
                 HStack { Text("私人借款"); Spacer(); NumberField(value: $profile.privateLoanDebt); Text("元/月") }
             }
-            
-            Section("预期") {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("预计多久能找到工作？")
-                        .font(.subheadline)
-                    Picker("", selection: $profile.expectedMonthsBeforeJob) {
-                        Text("1个月").tag(1)
-                        Text("3个月").tag(3)
-                        Text("6个月").tag(6)
-                        Text("12个月").tag(12)
-                        Text("不确定").tag(24)
-                    }
-                    .pickerStyle(.segmented)
-                }
-            }
         }
     }
 }

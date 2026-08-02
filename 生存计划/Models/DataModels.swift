@@ -51,9 +51,6 @@ final class UserProfile {
     var onlineLoanDebt: Double = 0
     var privateLoanDebt: Double = 0
     
-    // 期望
-    var expectedMonthsBeforeJob: Int = 6  // 预计多久能找到工作
-    
     init() {}
 }
 

@@ -244,16 +244,6 @@ struct ProfileEditorView: View {
                 labeledField("私人借款", value: $local.privateLoanDebt, suffix: "元/月")
             }
 
-            Section("求职预期") {
-                Picker("预计多久能找到工作", selection: $local.expectedMonthsBeforeJob) {
-                    Text("1个月").tag(1)
-                    Text("3个月").tag(3)
-                    Text("6个月").tag(6)
-                    Text("12个月").tag(12)
-                    Text("不确定").tag(24)
-                }
-                .pickerStyle(.segmented)
-            }
         }
         .navigationTitle("个人信息")
         .toolbar {
@@ -295,7 +285,6 @@ struct ProfileEditorView: View {
         profile.creditCardDebt = local.creditCardDebt
         profile.onlineLoanDebt = local.onlineLoanDebt
         profile.privateLoanDebt = local.privateLoanDebt
-        profile.expectedMonthsBeforeJob = local.expectedMonthsBeforeJob
         try? modelContext.save()
     }
 

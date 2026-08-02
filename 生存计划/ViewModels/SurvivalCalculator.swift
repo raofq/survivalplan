@@ -195,8 +195,6 @@ struct SurvivalCalculator {
         temp.creditCardDebt = profile.creditCardDebt
         temp.onlineLoanDebt = profile.onlineLoanDebt
         temp.privateLoanDebt = profile.privateLoanDebt
-        temp.expectedMonthsBeforeJob = changes.findJobInMonths ?? profile.expectedMonthsBeforeJob
-        
         if let reduce = changes.reduceMonthlyExpense {
             temp.foodBudget = max(0, profile.foodBudget - reduce * 0.3)
             temp.shoppingBudget = max(0, profile.shoppingBudget - reduce * 0.4)
