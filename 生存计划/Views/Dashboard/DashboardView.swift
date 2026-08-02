@@ -21,8 +21,8 @@ struct DashboardView: View {
                     // 概览卡片
                     OverviewCard(report: report)
                     
-                    // 资金走势
-                    FundTimelineCard(report: report)
+                    // 本月可用预算走势
+                    FundTimelineCard(report: report, spentToday: todaySpent)
 
                     // 今日预算 + 快速记账 + 今日支出（合并模块）
                     DailyBudgetCard(report: report, spentToday: todaySpent, categorySpent: todaySpentByCategory)
@@ -154,33 +154,34 @@ struct StatItem: View {
     }
 }
 
-// MARK: - 资金走势卡
+// MARK: - 本月可用预算走势卡
 struct FundTimelineCard: View {
     let report: SurvivalReport
+    let spentToday: Double
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Image(systemName: "chart.line.downtrend.xyaxis")
-                Text("资金走势")
+                Image(systemName: "calendar.badge.clock")
+                Text("本月可用预算走势")
                     .font(.headline)
                 Spacer()
-                Text("未来12个月")
+                Text("今天至月底")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            Chart(Array(report.timeline.prefix(12))) { month in
+            Chart(monthlyBudgetPoints, id: \.date) { point in
                 AreaMark(
-                    x: .value("月份", month.id),
-                    y: .value("积蓄", month.savingsAfter)
+                    x: .value("日期", point.date, unit: .day),
+                    y: .value("剩余", point.remaining)
                 )
                 .foregroundStyle(.blue.opacity(0.12))
                 .interpolationMethod(.monotone)
 
                 LineMark(
-                    x: .value("月份", month.id),
-                    y: .value("积蓄", month.savingsAfter)
+                    x: .value("日期", point.date, unit: .day),
+                    y: .value("剩余", point.remaining)
                 )
                 .foregroundStyle(.blue)
                 .interpolationMethod(.monotone)
@@ -198,10 +199,10 @@ struct FundTimelineCard: View {
                 }
             }
             .chartXAxis {
-                AxisMarks(values: .automatic(desiredCount: 6)) { value in
+                AxisMarks(values: .automatic(desiredCount: 4)) { value in
                     AxisValueLabel {
-                        if let month = value.as(Int.self) {
-                            Text("\(month)月")
+                        if let date = value.as(Date.self) {
+                            Text(date, format: .dateTime.month().day())
                                 .font(.caption2)
                         }
                     }
@@ -209,18 +210,55 @@ struct FundTimelineCard: View {
             }
             .frame(height: 160)
 
-            if report.monthsCanSurvive < 12 {
-                Label("资金将在第 \(Int(report.monthsCanSurvive)) 个月耗尽", systemImage: "exclamationmark.triangle.fill")
+            if remainingToday < 0 {
+                Label("今日已超支，可用预算为负，建议立即控制支出", systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(.red)
+            } else if remainingToday == 0 {
+                Label("今日预算已用完", systemImage: "exclamationmark.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
             } else {
-                Label("12 个月内资金充足", systemImage: "checkmark.circle.fill")
+                Label("本月剩余 \(daysLeft) 天，每日可花 ¥\(Int(report.dailyBudget))", systemImage: "checkmark.circle.fill")
                     .font(.caption)
                     .foregroundStyle(.green)
             }
         }
         .padding()
         .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
+    }
+
+    private var remainingToday: Double {
+        report.dailyBudget - spentToday
+    }
+
+    private var daysLeft: Int {
+        let calendar = Calendar.current
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: Date()), to: monthEnd).day ?? 0
+        return max(days + 1, 1)  // 含今天
+    }
+
+    private var monthEnd: Date {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        guard let nextMonth = calendar.date(byAdding: .month, value: 1, to: startOfToday),
+              let end = calendar.date(byAdding: .day, value: -1, to: nextMonth) else {
+            return startOfToday
+        }
+        return end
+    }
+
+    /// 每日剩余可用预算（今天为实际剩余，之后按每日预算递减到月底）
+    private var monthlyBudgetPoints: [(date: Date, remaining: Double)] {
+        let calendar = Calendar.current
+        var points: [(date: Date, remaining: Double)] = []
+        var remaining = remainingToday
+        for i in 0..<daysLeft {
+            let date = calendar.date(byAdding: .day, value: i, to: calendar.startOfDay(for: Date())) ?? Date()
+            points.append((date, max(remaining, 0)))
+            remaining -= report.dailyBudget
+        }
+        return points
     }
 }
 
