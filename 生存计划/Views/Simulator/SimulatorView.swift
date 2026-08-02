@@ -195,7 +195,8 @@ struct TimelineComparisonChart: View {
                 ForEach(Array(current.timeline.prefix(12))) { month in
                     LineMark(
                         x: .value("月份", month.id),
-                        y: .value("积蓄", month.savingsAfter)
+                        y: .value("积蓄", month.savingsAfter),
+                        series: .value("系列", "改善前")
                     )
                     .foregroundStyle(.gray)
                     .interpolationMethod(.monotone)
@@ -205,7 +206,8 @@ struct TimelineComparisonChart: View {
                 ForEach(Array(simulated.timeline.prefix(12))) { month in
                     LineMark(
                         x: .value("月份", month.id),
-                        y: .value("积蓄", month.savingsAfter)
+                        y: .value("积蓄", month.savingsAfter),
+                        series: .value("系列", "改善后")
                     )
                     .foregroundStyle(.blue)
                     .interpolationMethod(.monotone)
