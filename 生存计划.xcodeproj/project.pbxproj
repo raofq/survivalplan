@@ -21,6 +21,8 @@
 		FF7D1D239C4042D6897396F2 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FBC1869444F466DB00058B6 /* OnboardingView.swift */; };
 		E86DDE2827A14BBF9224A6B7 /* SimulatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6972A35EC37341A2B4DC2D1D /* SimulatorView.swift */; };
 		A8B2C4D01A2B4C5D6E7F8901 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9C3D5E7F1A2B4C6D8E0F2A4 /* SettingsView.swift */; };
+		E1F2A3B4C5D6E7F8A9B0C1D2 /* WorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A3B4C5D6E7F8A9B0C1D2E3 /* WorkoutView.swift */; };
+		B4C5D6E7F8A9B0C1D2E3F4A5 /* StudyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5D6E7F8A9B0C1D2E3F4A5B6 /* StudyView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -58,6 +60,8 @@
 		7FBC1869444F466DB00058B6 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "OnboardingView.swift"; sourceTree = "<group>"; };
 		6972A35EC37341A2B4DC2D1D /* SimulatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulatorView.swift; sourceTree = "<group>"; };
 		B9C3D5E7F1A2B4C6D8E0F2A4 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		F2A3B4C5D6E7F8A9B0C1D2E3 /* WorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutView.swift; sourceTree = "<group>"; };
+		C5D6E7F8A9B0C1D2E3F4A5B6 /* StudyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudyView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -208,6 +212,22 @@
 			path = Budget;
 			sourceTree = "<group>";
 		};
+		D6E7F8A9B0C1D2E3F4A5B6C7 /* Workout */ = {
+			isa = PBXGroup;
+			children = (
+				F2A3B4C5D6E7F8A9B0C1D2E3 /* WorkoutView.swift */,
+			);
+			path = Workout;
+			sourceTree = "<group>";
+		};
+		E7F8A9B0C1D2E3F4A5B6C7D8 /* Study */ = {
+			isa = PBXGroup;
+			children = (
+				C5D6E7F8A9B0C1D2E3F4A5B6 /* StudyView.swift */,
+			);
+			path = Study;
+			sourceTree = "<group>";
+		};
 		ED7EEE77F92F419A952E6F2F /* Views */ = {
 			isa = PBXGroup;
 			children = (
@@ -216,6 +236,8 @@
 				89E340D7BDA543899ACC1021 /* Onboarding */,
 				8B26EF9A07D94486A7FBD5EC /* Simulator */,
 				F1E2D3C4B5A6978800112233 /* Settings */,
+				D6E7F8A9B0C1D2E3F4A5B6C7 /* Workout */,
+				E7F8A9B0C1D2E3F4A5B6C7D8 /* Study */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -402,6 +424,8 @@
 				FF7D1D239C4042D6897396F2 /* OnboardingView.swift in Sources */,
 				E86DDE2827A14BBF9224A6B7 /* SimulatorView.swift in Sources */,
 				A8B2C4D01A2B4C5D6E7F8901 /* SettingsView.swift in Sources */,
+				E1F2A3B4C5D6E7F8A9B0C1D2 /* WorkoutView.swift in Sources */,
+				B4C5D6E7F8A9B0C1D2E3F4A5 /* StudyView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

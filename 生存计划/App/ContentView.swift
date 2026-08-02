@@ -81,6 +81,12 @@ struct MainTabView: View {
             
             SimulatorView(profile: profile)
                 .tabItem { Label("模拟", systemImage: "arrow.triangle.2.circlepath") }
+
+            WorkoutView()
+                .tabItem { Label("运动", systemImage: "figure.walk") }
+
+            StudyView()
+                .tabItem { Label("学习", systemImage: "book.fill") }
         }
     }
 }
