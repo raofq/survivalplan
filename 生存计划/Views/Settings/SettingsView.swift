@@ -121,7 +121,10 @@ struct SettingsView: View {
     }
 
     private var monthlyIncome: Double {
-        var income = profile.partTimeIncome + profile.spouseIncome + profile.otherIncome
+        var income = profile.spouseIncome + profile.otherIncome
+        if profile.hasPartTimeIncome {
+            income += profile.partTimeIncome
+        }
         if profile.hasUnemploymentBenefit {
             income += profile.unemploymentBenefit
         }
