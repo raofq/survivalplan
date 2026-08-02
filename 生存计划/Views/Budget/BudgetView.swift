@@ -126,7 +126,7 @@ struct BudgetView: View {
         }
     }
 
-    /// 月底支出预测：用最近30天日均支出外推当月总额
+    /// 月底支出预测 = 刚性支出（固定必花） + 本月已花（弹性实际） + 日均弹性支出 × 本月剩余天数
     private var monthlyPrediction: (projectedTotal: Double, monthlyBudget: Double, diff: Double, isOver: Bool)? {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -141,9 +141,13 @@ struct BudgetView: View {
 
         let dailyAvg = recent.reduce(0.0) { $0 + $1.amount } / Double(daysCovered)
         let daysInMonth = calendar.range(of: .day, in: .month, for: Date())?.count ?? 30
-        let projectedTotal = dailyAvg * Double(daysInMonth)
+        let daysLeft = max(daysInMonth - calendar.component(.day, from: today), 0)
 
         let report = SurvivalCalculator.calculate(from: profile)
+        let essential = report.essentialExpenses                      // 刚性：固定必花
+        let monthSpent = expenses.filter { calendar.isDate($0.date, equalTo: Date(), toGranularity: .month) }
+            .reduce(0.0) { $0 + $1.amount }                           // 本月已花（弹性实际）
+        let projectedTotal = essential + monthSpent + dailyAvg * Double(daysLeft)
         let budget = report.totalMonthlyExpenses
         let diff = projectedTotal - budget
 
