@@ -260,9 +260,6 @@ struct ProfileEditorView: View {
             ToolbarItem(placement: .confirmationAction) {
                 Button("保存") { save(); dismiss() }
             }
-            ToolbarItem(placement: .cancellationAction) {
-                Button("取消") { dismiss() }
-            }
         }
     }
 
