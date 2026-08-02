@@ -6,6 +6,7 @@ struct OnboardingView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var currentStep = 0
     @State private var profile: UserProfile
+    @State private var showCompletion = false
     
     init(profile: UserProfile) {
         _profile = State(initialValue: profile)
@@ -48,6 +49,7 @@ struct OnboardingView: View {
                     
                     if currentStep < totalSteps - 1 {
                         Button("下一步") {
+                            hideKeyboard()
                             withAnimation { currentStep += 1 }
                         }
                         .buttonStyle(.borderedProminent)
@@ -64,13 +66,64 @@ struct OnboardingView: View {
             }
             .navigationTitle("填写信息")
             .navigationBarTitleDisplayMode(.inline)
+            .overlay {
+                if showCompletion {
+                    CompletionView()
+                        .transition(.opacity)
+                }
+            }
         }
     }
     
     private func saveAndDismiss() {
+        hideKeyboard()
         modelContext.insert(profile)
         try? modelContext.save()
-        dismiss()
+        withAnimation { showCompletion = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+            dismiss()
+        }
+    }
+
+    private func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+}
+
+// MARK: - 完成动画
+struct CompletionView: View {
+    @State private var scale = 0.5
+    @State private var opacity = 0.0
+
+    var body: some View {
+        ZStack {
+            Color(.systemBackground)
+                .ignoresSafeArea()
+
+            VStack(spacing: 16) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 80))
+                    .foregroundStyle(.green)
+                    .scaleEffect(scale)
+                    .opacity(opacity)
+
+                Text("生存报告已生成！")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .opacity(opacity)
+
+                Text("你的专属预算已经算好了")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .opacity(opacity)
+            }
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+                scale = 1.0
+                opacity = 1.0
+            }
+        }
     }
 }
 
