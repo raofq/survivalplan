@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import SwiftData
 
 struct DashboardView: View {
     let profile: UserProfile
@@ -35,7 +36,7 @@ struct DashboardView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink("设置") {
-                        OnboardingView(profile: profile)
+                        SettingsView(profile: profile)
                     }
                 }
             }
@@ -241,7 +242,7 @@ struct QuickExpenseCard: View {
                     .font(.caption)
                 }
             }
-            .sheet($showSheet) {
+            .sheet(isPresented: $showSheet) {
                 NavigationStack {
                     Form {
                         TextField("金额", text: $amount)

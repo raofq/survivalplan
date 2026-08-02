@@ -10,6 +10,7 @@ final class UserProfile {
     // 收入
     var hasUnemploymentBenefit: Bool = false
     var unemploymentBenefit: Double = 0
+    var unemploymentBenefitMonths: Int = 0  // 剩余可领月数，0=不限
     var hasPartTimeIncome: Bool = false
     var partTimeIncome: Double = 0
     var spouseIncome: Double = 0
@@ -27,8 +28,10 @@ final class UserProfile {
     var needsSupportElders: Bool = false
     
     // 刚性支出（月）
-    var mortgage: Double = 0       // 房贷
-    var carLoan: Double = 0        // 车贷
+    var mortgage: Double = 0              // 房贷/月
+    var mortgageRemainingMonths: Int = 0  // 剩余还款月数，0=已还清/无
+    var carLoan: Double = 0               // 车贷/月
+    var carLoanRemainingMonths: Int = 0   // 剩余还款月数，0=已还清/无
     var propertyFee: Double = 0    // 物业
     var utilities: Double = 0      // 水电煤
     var internet: Double = 0       // 网络
@@ -80,6 +83,9 @@ final class WorkoutRecord {
     var type: String = ""      // 散步/跑步/居家健身
     var duration: Int = 0      // 分钟
     var note: String = ""
+    
+    init() {
+    }
 }
 
 // MARK: - 学习记录
@@ -90,4 +96,7 @@ final class StudyRecord {
     var skill: String = ""
     var content: String = ""
     var duration: Int = 0
+    
+    init() {
+    }
 }

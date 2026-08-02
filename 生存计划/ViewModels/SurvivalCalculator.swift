@@ -4,10 +4,10 @@ import Foundation
 struct SurvivalReport {
     let totalMonthlyIncome: Double
     let totalSavings: Double
-    let essentialExpenses: Double      // 刚性月支出
+    let essentialExpenses: Double      // 当前月刚性支出
     let flexibleExpenses: Double       // 弹性月支出
-    let totalMonthlyExpenses: Double   // 总月支出
-    let monthlyShortfall: Double       // 月资金缺口
+    let totalMonthlyExpenses: Double   // 当前月总支出
+    let monthlyShortfall: Double       // 当前月资金缺口
     let monthsCanSurvive: Double       // 可支撑月数
     let exhaustionDate: Date           // 资金耗尽日
     let dailyBudget: Double            // 每日预算
@@ -21,25 +21,34 @@ struct SurvivalReport {
     let medicalBudget: Double
     let socialBudget: Double
     let shoppingBudget: Double
+    
+    // 时间线数据
+    let timeline: [MonthSnapshot]      // 逐月投影
+}
+
+struct MonthSnapshot: Identifiable {
+    let id: Int                        // 月份序号（1开始）
+    let income: Double
+    let expenses: Double
+    let net: Double
+    let savingsAfter: Double           // 月末剩余积蓄
 }
 
 // MARK: - 生存计算器
 struct SurvivalCalculator {
     
-    static func calculate(from profile: UserProfile) -> SurvivalReport {
-        // 月收入
-        let income = profile.unemploymentBenefit
-            + profile.partTimeIncome
-            + profile.spouseIncome
-            + profile.otherIncome
+    /// 计算某个月的具体收支（考虑时间窗口）
+    private static func monthFinances(profile: UserProfile, month: Int) -> (income: Double, essential: Double) {
+        // 收入：失业金仅在有额度且未到期时计入
+        var income = profile.partTimeIncome + profile.spouseIncome + profile.otherIncome
+        if profile.hasUnemploymentBenefit {
+            if profile.unemploymentBenefitMonths == 0 || month <= profile.unemploymentBenefitMonths {
+                income += profile.unemploymentBenefit
+            }
+        }
         
-        // 积蓄
-        let savings = profile.savings + profile.investments
-        
-        // 刚性月支出
-        let essential = profile.mortgage
-            + profile.carLoan
-            + profile.propertyFee
+        // 刚性支出：房贷/车贷仅在有额度且未到期时计入
+        var essential = profile.propertyFee
             + profile.utilities
             + profile.internet
             + profile.phone
@@ -48,7 +57,21 @@ struct SurvivalCalculator {
             + profile.onlineLoanDebt
             + profile.privateLoanDebt
         
-        // 弹性月支出
+        if profile.mortgageRemainingMonths == 0 || month <= profile.mortgageRemainingMonths {
+            essential += profile.mortgage
+        }
+        if profile.carLoanRemainingMonths == 0 || month <= profile.carLoanRemainingMonths {
+            essential += profile.carLoan
+        }
+        
+        return (income, essential)
+    }
+    
+    static func calculate(from profile: UserProfile) -> SurvivalReport {
+        // 积蓄
+        let totalSavings = profile.savings + profile.investments
+        
+        // 弹性月支出（固定不变）
         let flexible = profile.foodBudget
             + profile.transportBudget
             + profile.medicalBudget
@@ -56,50 +79,66 @@ struct SurvivalCalculator {
             + profile.socialBudget
             + profile.shoppingBudget
         
-        let totalMonthly = essential + flexible
-        let shortfall = totalMonthly - income
+        // 当前月（第1个月）的情况
+        let (currentIncome, currentEssential) = monthFinances(profile: profile, month: 1)
+        let currentTotal = currentEssential + flexible
+        let currentShortfall = currentTotal - currentIncome
         
-        // 可用资金 = 积蓄 + 每月结余 × 预计失业月数
-        let monthlySurplus = income - totalMonthly
-        let availableFunds: Double
-        if monthlySurplus >= 0 {
-            // 收支平衡或有结余
-            availableFunds = savings + monthlySurplus * Double(profile.expectedMonthsBeforeJob)
-        } else {
-            // 每月有缺口，积蓄在消耗
-            availableFunds = savings
-        }
+        // 逐月投影
+        var timeline: [MonthSnapshot] = []
+        var remaining = totalSavings
+        var monthsCanSurvive = 999.0
+        let maxProjection = 600 // 最多投影600个月（50年）
         
-        // 可支撑月数
-        let months: Double
-        if totalMonthly <= 0 {
-            months = 999
-        } else if monthlySurplus >= 0 {
-            months = 999 // 收支平衡，理论上无限
-        } else {
-            months = availableFunds / abs(monthlySurplus)
+        for month in 1...maxProjection {
+            let (mIncome, mEssential) = monthFinances(profile: profile, month: month)
+            let mTotal = mEssential + flexible
+            let mNet = mIncome - mTotal
+            
+            remaining += mNet
+            
+            timeline.append(MonthSnapshot(
+                id: month,
+                income: mIncome,
+                expenses: mTotal,
+                net: mNet,
+                savingsAfter: max(remaining, 0)
+            ))
+            
+            if remaining <= 0 && monthsCanSurvive == 999 {
+                monthsCanSurvive = Double(month)
+                // 继续投影以显示负值趋势
+            }
         }
         
         // 资金耗尽日
-        let exhaustion = Calendar.current.date(byAdding: .month, value: Int(months), to: Date()) ?? Date()
-        
-        // 每日/每周预算
-        let daily = totalMonthly / 30.0
-        let weekly = totalMonthly / 4.0
-        
-        // 警戒线（可用资金不足3个月支出）
-        let warning = availableFunds < essential * 3
-        let warningMsg: String
-        if warning {
-            warningMsg = "⚠️ 资金仅够维持 \(Int(months)) 个月，低于3个月安全线，建议立即削减开支"
-        } else if months < 6 {
-            warningMsg = "🟡 资金可维持 \(Int(months)) 个月，建议积极寻找收入来源"
+        let exhaustionMonths = Int(monthsCanSurvive)
+        let exhaustion: Date
+        if exhaustionMonths >= maxProjection {
+            exhaustion = Calendar.current.date(byAdding: .year, value: 50, to: Date()) ?? Date()
         } else {
-            warningMsg = "🟢 资金状况相对安全，但建议做好长期规划"
+            exhaustion = Calendar.current.date(byAdding: .month, value: exhaustionMonths, to: Date()) ?? Date()
+        }
+        
+        // 每日/每周预算（基于当前月）
+        let daily = currentTotal > 0 ? currentTotal / 30.0 : 0
+        let weekly = currentTotal > 0 ? currentTotal / 4.0 : 0
+        
+        // 警戒线
+        let warning = monthsCanSurvive < 3
+        let warningMsg: String
+        if monthsCanSurvive < 3 {
+            warningMsg = "⚠️ 资金仅够维持 \(Int(monthsCanSurvive)) 个月，低于3个月安全线，建议立即削减开支"
+        } else if monthsCanSurvive < 6 {
+            warningMsg = "🟡 资金可维持 \(Int(monthsCanSurvive)) 个月，建议积极寻找收入来源"
+        } else if monthsCanSurvive < 12 {
+            warningMsg = "🟢 资金可维持 \(Int(monthsCanSurvive)) 个月，状况尚可但需规划"
+        } else {
+            warningMsg = "✅ 资金可维持 \(Int(monthsCanSurvive)) 个月以上，状况良好"
         }
         
         // 各分类每日预算
-        let total = totalMonthly
+        let total = currentTotal
         let foodPct = total > 0 ? profile.foodBudget / total : 0
         let transportPct = total > 0 ? profile.transportBudget / total : 0
         let medicalPct = total > 0 ? profile.medicalBudget / total : 0
@@ -107,13 +146,13 @@ struct SurvivalCalculator {
         let shoppingPct = total > 0 ? profile.shoppingBudget / total : 0
         
         return SurvivalReport(
-            totalMonthlyIncome: income,
-            totalSavings: savings,
-            essentialExpenses: essential,
+            totalMonthlyIncome: currentIncome,
+            totalSavings: totalSavings,
+            essentialExpenses: currentEssential,
             flexibleExpenses: flexible,
-            totalMonthlyExpenses: totalMonthly,
-            monthlyShortfall: shortfall,
-            monthsCanSurvive: months,
+            totalMonthlyExpenses: currentTotal,
+            monthlyShortfall: currentShortfall,
+            monthsCanSurvive: monthsCanSurvive,
             exhaustionDate: exhaustion,
             dailyBudget: daily,
             weeklyBudget: weekly,
@@ -123,29 +162,52 @@ struct SurvivalCalculator {
             transportBudget: daily * transportPct,
             medicalBudget: daily * medicalPct,
             socialBudget: daily * socialPct,
-            shoppingBudget: daily * shoppingPct
+            shoppingBudget: daily * shoppingPct,
+            timeline: timeline
         )
     }
     
     // MARK: - 模拟器
     static func simulate(profile: UserProfile, changes: SimulatedChanges) -> SurvivalReport {
-        var modified = profile
-        if let newIncome = changes.newMonthlyIncome {
-            modified.partTimeIncome = newIncome
+        // 基于原始 profile 创建临时副本用于计算
+        let temp = UserProfile()
+        temp.hasUnemploymentBenefit = profile.hasUnemploymentBenefit
+        temp.unemploymentBenefit = profile.unemploymentBenefit
+        temp.unemploymentBenefitMonths = profile.unemploymentBenefitMonths
+        temp.partTimeIncome = changes.newMonthlyIncome ?? profile.partTimeIncome
+        temp.spouseIncome = profile.spouseIncome
+        temp.otherIncome = profile.otherIncome
+        temp.savings = profile.savings + (changes.oneTimeIncome ?? 0)
+        temp.investments = profile.investments
+        temp.mortgage = profile.mortgage
+        temp.mortgageRemainingMonths = profile.mortgageRemainingMonths
+        temp.carLoan = profile.carLoan
+        temp.carLoanRemainingMonths = profile.carLoanRemainingMonths
+        temp.propertyFee = profile.propertyFee
+        temp.utilities = profile.utilities
+        temp.internet = profile.internet
+        temp.phone = profile.phone
+        temp.insurance = profile.insurance
+        temp.creditCardDebt = profile.creditCardDebt
+        temp.onlineLoanDebt = profile.onlineLoanDebt
+        temp.privateLoanDebt = profile.privateLoanDebt
+        temp.expectedMonthsBeforeJob = changes.findJobInMonths ?? profile.expectedMonthsBeforeJob
+        
+        if let reduce = changes.reduceMonthlyExpense {
+            temp.foodBudget = max(0, profile.foodBudget - reduce * 0.3)
+            temp.shoppingBudget = max(0, profile.shoppingBudget - reduce * 0.4)
+            temp.transportBudget = max(0, profile.transportBudget - reduce * 0.15)
+            temp.socialBudget = max(0, profile.socialBudget - reduce * 0.15)
+        } else {
+            temp.foodBudget = profile.foodBudget
+            temp.shoppingBudget = profile.shoppingBudget
+            temp.transportBudget = profile.transportBudget
+            temp.socialBudget = profile.socialBudget
         }
-        if let reduceExpense = changes.reduceMonthlyExpense {
-            modified.foodBudget = max(0, modified.foodBudget - reduceExpense * 0.3)
-            modified.shoppingBudget = max(0, modified.shoppingBudget - reduceExpense * 0.4)
-            modified.transportBudget = max(0, modified.transportBudget - reduceExpense * 0.15)
-            modified.socialBudget = max(0, modified.socialBudget - reduceExpense * 0.15)
-        }
-        if let sellAsset = changes.oneTimeIncome {
-            modified.savings += sellAsset
-        }
-        if let newJobMonths = changes.findJobInMonths {
-            modified.expectedMonthsBeforeJob = newJobMonths
-        }
-        return calculate(from: modified)
+        temp.medicalBudget = profile.medicalBudget
+        temp.educationBudget = profile.educationBudget
+        
+        return calculate(from: temp)
     }
 }
 

@@ -80,7 +80,7 @@ struct IncomeView: View {
     
     var body: some View {
         Form {
-            Section("收入来源") {
+            Section {
                 Toggle("领取失业金", isOn: $profile.hasUnemploymentBenefit)
                 if profile.hasUnemploymentBenefit {
                     HStack {
@@ -90,6 +90,16 @@ struct IncomeView: View {
                             .keyboardType(.decimalPad)
                             .multilineTextAlignment(.trailing)
                         Text("元/月")
+                    }
+                    HStack {
+                        Text("还可领取")
+                        Spacer()
+                        Picker("", selection: $profile.unemploymentBenefitMonths) {
+                            Text("不限").tag(0)
+                            ForEach([1,2,3,6,9,12,18,24], id: \.self) { m in
+                                Text("\(m)个月").tag(m)
+                            }
+                        }
                     }
                 }
                 
@@ -122,6 +132,8 @@ struct IncomeView: View {
                         .multilineTextAlignment(.trailing)
                     Text("元/月")
                 }
+            } header: {
+                Text("收入来源")
             } footer: {
                 Text("请如实填写，这关系到生存计算的准确性")
             }
@@ -135,7 +147,7 @@ struct SavingsView: View {
     
     var body: some View {
         Form {
-            Section("积蓄") {
+            Section {
                 HStack {
                     Text("银行存款")
                     Spacer()
@@ -156,6 +168,8 @@ struct SavingsView: View {
                         Text("元")
                     }
                 }
+            } header:{
+                Text("积蓄")
             } footer: {
                 Text("理财产品按可立即变现的金额填写")
             }
@@ -169,12 +183,14 @@ struct FamilyView: View {
     
     var body: some View {
         Form {
-            Section("家庭成员") {
+            Section{
                 Toggle("有配偶", isOn: $profile.hasSpouse)
                 
                 Stepper("子女数量: \(profile.childrenCount)", value: $profile.childrenCount, in: 0...10)
                 
                 Toggle("需赡养老人", isOn: $profile.needsSupportElders)
+            } header: {
+                Text("家庭成员")
             } footer: {
                 Text("家庭成员信息会影响教育支出、生活预算等计算")
             }
@@ -188,14 +204,40 @@ struct EssentialExpenseView: View {
     
     var body: some View {
         Form {
-            Section("每月固定支出（刚性）") {
+            Section {
                 HStack { Text("房贷"); Spacer(); NumberField(value: $profile.mortgage); Text("元/月") }
+                if profile.mortgage > 0 {
+                    HStack {
+                        Text("剩余还款")
+                        Spacer()
+                        Picker("", selection: $profile.mortgageRemainingMonths) {
+                            Text("不限").tag(0)
+                            ForEach([12,24,36,60,84,120,180,240,300,360], id: \.self) { m in
+                                Text("\(m/12)年").tag(m)
+                            }
+                        }
+                    }
+                }
                 HStack { Text("车贷"); Spacer(); NumberField(value: $profile.carLoan); Text("元/月") }
+                if profile.carLoan > 0 {
+                    HStack {
+                        Text("剩余还款")
+                        Spacer()
+                        Picker("", selection: $profile.carLoanRemainingMonths) {
+                            Text("不限").tag(0)
+                            ForEach([6,12,18,24,36,48,60], id: \.self) { m in
+                                Text("\(m)个月").tag(m)
+                            }
+                        }
+                    }
+                }
                 HStack { Text("物业费"); Spacer(); NumberField(value: $profile.propertyFee); Text("元/月") }
                 HStack { Text("水电煤"); Spacer(); NumberField(value: $profile.utilities); Text("元/月") }
                 HStack { Text("网络"); Spacer(); NumberField(value: $profile.internet); Text("元/月") }
                 HStack { Text("手机"); Spacer(); NumberField(value: $profile.phone); Text("元/月") }
                 HStack { Text("保险"); Spacer(); NumberField(value: $profile.insurance); Text("元/月") }
+            } header:{
+                Text("每月固定支出（刚性）")
             } footer: {
                 Text("刚性支出是每个月必须花的钱，请尽量填写准确")
             }
@@ -209,13 +251,15 @@ struct FlexibleExpenseView: View {
     
     var body: some View {
         Form {
-            Section("每月弹性支出（可调整）") {
+            Section {
                 HStack { Text("食品/买菜"); Spacer(); NumberField(value: $profile.foodBudget); Text("元/月") }
                 HStack { Text("交通"); Spacer(); NumberField(value: $profile.transportBudget); Text("元/月") }
                 HStack { Text("医疗"); Spacer(); NumberField(value: $profile.medicalBudget); Text("元/月") }
                 HStack { Text("教育/小孩"); Spacer(); NumberField(value: $profile.educationBudget); Text("元/月") }
                 HStack { Text("人情往来"); Spacer(); NumberField(value: $profile.socialBudget); Text("元/月") }
                 HStack { Text("购物/娱乐"); Spacer(); NumberField(value: $profile.shoppingBudget); Text("元/月") }
+            } header:{
+                Text("每月弹性支出（可调整）")
             } footer: {
                 Text("弹性支出是可以削减的部分，后续会给出优化建议")
             }

@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import SwiftData
 
 struct BudgetView: View {
     let profile: UserProfile

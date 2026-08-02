@@ -139,11 +139,22 @@ struct SimulatorView: View {
                 }
                 .padding()
             }
+            .scrollDismissesKeyboard(.immediately)
+            .scrollDisabled(false)
             .navigationTitle("模拟器")
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("完成") {
+                        hideKeyboard()
+                    }
+                }
+            }
         }
     }
     
     private func calculate() {
+        hideKeyboard()
         let changes = SimulatedChanges(
             newMonthlyIncome: newJobIncome > 0 ? newJobIncome : nil,
             reduceMonthlyExpense: reduceExpense > 0 ? reduceExpense : nil,
@@ -151,5 +162,9 @@ struct SimulatorView: View {
             findJobInMonths: newJobIncome > 0 ? findJobInMonths : nil
         )
         simulatedReport = SurvivalCalculator.simulate(profile: profile, changes: changes)
+    }
+    
+    private func hideKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }
