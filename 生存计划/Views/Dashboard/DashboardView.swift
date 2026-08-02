@@ -219,7 +219,7 @@ struct FundTimelineCard: View {
                     .font(.caption)
                     .foregroundStyle(.orange)
             } else {
-                Label("本月剩余 \(daysLeft) 天，每日可花 ¥\(Int(report.dailyBudget))", systemImage: "checkmark.circle.fill")
+                Label("本月还可花 ¥\(Int(monthRemainingTotal))", systemImage: "checkmark.circle.fill")
                     .font(.caption)
                     .foregroundStyle(.green)
             }
@@ -230,6 +230,11 @@ struct FundTimelineCard: View {
 
     private var remainingToday: Double {
         report.dailyBudget - spentToday
+    }
+
+    /// 本月剩余总预算（剩余天数 × 每日预算 − 今日已花）
+    private var monthRemainingTotal: Double {
+        Double(daysLeft) * report.dailyBudget - spentToday
     }
 
     private var daysLeft: Int {
@@ -248,15 +253,17 @@ struct FundTimelineCard: View {
         return end
     }
 
-    /// 每日剩余可用预算（今天为实际剩余，之后按每日预算递减到月底）
+    /// 本月剩余总预算走势（今天为实际总额，之后随日子递减）
     private var monthlyBudgetPoints: [(date: Date, remaining: Double)] {
         let calendar = Calendar.current
         var points: [(date: Date, remaining: Double)] = []
-        var remaining = remainingToday
         for i in 0..<daysLeft {
             let date = calendar.date(byAdding: .day, value: i, to: calendar.startOfDay(for: Date())) ?? Date()
+            let futureDays = daysLeft - i
+            let remaining = i == 0
+                ? Double(futureDays) * report.dailyBudget - spentToday
+                : Double(futureDays) * report.dailyBudget
             points.append((date, max(remaining, 0)))
-            remaining -= report.dailyBudget
         }
         return points
     }
