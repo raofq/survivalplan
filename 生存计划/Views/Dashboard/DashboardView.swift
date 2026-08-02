@@ -25,7 +25,7 @@ struct DashboardView: View {
                     FundTimelineCard(report: report, expenses: expenses)
 
                     // 今日预算 + 快速记账 + 今日支出（合并模块）
-                    DailyBudgetCard(report: report, spentToday: todaySpent, categorySpent: todaySpentByCategory)
+                    DailyBudgetCard(report: report, spentToday: todaySpent)
                     QuickExpenseCard(profile: profile, expenses: expenses, todayExpenses: todayExpenses)
                 }
                 .padding()
@@ -49,10 +49,6 @@ struct DashboardView: View {
         todayExpenses.reduce(0) { $0 + $1.amount }
     }
 
-    private var todaySpentByCategory: [String: Double] {
-        Dictionary(grouping: todayExpenses) { $0.category }
-            .mapValues { $0.reduce(0) { $0 + $1.amount } }
-    }
 }
 
 // MARK: - 风险等级卡
@@ -234,7 +230,6 @@ struct FundTimelineCard: View {
 struct DailyBudgetCard: View {
     let report: SurvivalReport
     let spentToday: Double
-    let categorySpent: [String: Double]
 
     private var remaining: Double { report.dailyBudget - spentToday }
     private var isOver: Bool { remaining < 0 }
@@ -265,13 +260,6 @@ struct DailyBudgetCard: View {
                 }
             }
             
-            Divider()
-            
-            BudgetRow(label: "食品", budget: report.foodBudget, spent: categorySpent["食品"] ?? 0)
-            BudgetRow(label: "交通", budget: report.transportBudget, spent: categorySpent["交通"] ?? 0)
-            BudgetRow(label: "医疗", budget: report.medicalBudget, spent: categorySpent["医疗"] ?? 0)
-            BudgetRow(label: "人情", budget: report.socialBudget, spent: categorySpent["人情"] ?? 0)
-            BudgetRow(label: "购物", budget: report.shoppingBudget, spent: categorySpent["购物"] ?? 0)
         }
         .padding()
         .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
@@ -280,40 +268,6 @@ struct DailyBudgetCard: View {
     private func formatCurrency(_ value: Double) -> String {
         "¥\(Int(value))"
     }
-}
-
-struct BudgetRow: View {
-    let label: String
-    let budget: Double
-    let spent: Double
-
-    private var pct: Double { budget > 0 ? spent / budget : 0 }
-    
-    var body: some View {
-        HStack {
-            Text(label)
-                .font(.subheadline)
-                .frame(width: 40, alignment: .leading)
-            
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(.gray.opacity(0.15))
-                        .frame(height: 8)
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(pct > 1 ? Color.red : Color.blue)
-                        .frame(width: geo.size.width * min(pct, 1), height: 8)
-                }
-            }
-            .frame(height: 8)
-            
-            Text("¥\(Int(spent))/\(Int(budget))")
-                .font(.caption)
-                .foregroundStyle(pct > 1 ? .red : .secondary)
-                .frame(width: 50, alignment: .trailing)
-        }
-    }
-}
 
 // MARK: - 快速记账卡
 struct QuickExpenseCard: View {
