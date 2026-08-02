@@ -117,14 +117,18 @@ struct SimulatorView: View {
                             HStack(spacing: 0) {
                                 StatItem(value: "\(Int(report.monthsCanSurvive))", label: "可撑(月)", color: .blue)
                                 StatItem(value: "¥\(Int(report.dailyBudget))", label: "每日预算", color: .green)
-                                StatItem(value: "¥\(Int(report.monthlyShortfall))", label: "月缺口", color: .red)
+                                StatItem(
+                                    value: "¥\(Int(abs(report.monthlyShortfall)))",
+                                    label: report.monthlyShortfall > 0 ? "月缺口" : "月盈余",
+                                    color: report.monthlyShortfall > 0 ? .red : .green
+                                )
                             }
                             
                             Divider()
                             
                             // 对比
                             HStack {
-                                Text("改善前")
+                                Text("改善前后")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                 Spacer()
