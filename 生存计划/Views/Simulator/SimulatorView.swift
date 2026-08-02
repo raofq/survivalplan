@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 struct SimulatorView: View {
     let profile: UserProfile
@@ -135,6 +136,9 @@ struct SimulatorView: View {
                         }
                         .padding()
                         .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
+
+                        // 资金曲线对比
+                        TimelineComparisonChart(current: currentReport, simulated: report)
                     }
                 }
                 .padding()
@@ -166,5 +170,78 @@ struct SimulatorView: View {
     
     private func hideKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+}
+
+// MARK: - 资金曲线对比图
+struct TimelineComparisonChart: View {
+    let current: SurvivalReport
+    let simulated: SurvivalReport
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                Text("资金曲线对比")
+                    .font(.headline)
+                Spacer()
+            }
+
+            Chart {
+                ForEach(Array(current.timeline.prefix(12))) { month in
+                    LineMark(
+                        x: .value("月份", month.id),
+                        y: .value("积蓄", month.savingsAfter)
+                    )
+                    .foregroundStyle(.gray)
+                    .interpolationMethod(.monotone)
+                    .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
+                }
+
+                ForEach(Array(simulated.timeline.prefix(12))) { month in
+                    LineMark(
+                        x: .value("月份", month.id),
+                        y: .value("积蓄", month.savingsAfter)
+                    )
+                    .foregroundStyle(.blue)
+                    .interpolationMethod(.monotone)
+                    .lineStyle(StrokeStyle(lineWidth: 2.5))
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: .automatic(desiredCount: 6)) { value in
+                    AxisValueLabel {
+                        if let month = value.as(Int.self) {
+                            Text("\(month)月")
+                                .font(.caption2)
+                        }
+                    }
+                }
+            }
+            .frame(height: 180)
+
+            // 图例
+            HStack(spacing: 16) {
+                HStack(spacing: 4) {
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(.gray)
+                        .frame(width: 16, height: 2)
+                    Text("改善前")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                HStack(spacing: 4) {
+                    RoundedRectangle(cornerRadius: 1)
+                        .fill(.blue)
+                        .frame(width: 16, height: 2.5)
+                    Text("改善后")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+        }
+        .padding()
+        .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
     }
 }
