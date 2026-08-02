@@ -319,27 +319,33 @@ struct QuickExpenseCard: View {
     @State private var amount = ""
     @State private var category = "食品"
     @State private var note = ""
-    @State private var feedback: (message: String, isWarning: Bool)?
     
     let categories = ["食品", "交通", "医疗", "人情", "购物", "教育", "其他"]
     
     var body: some View {
         VStack(spacing: 12) {
             HStack {
-                Image(systemName: "plus.circle.fill")
-                Text("快速记账")
+                Image(systemName: "list.clipboard")
+                Text("今日支出")
                     .font(.headline)
                 Spacer()
+                Text("共 \(todayExpenses.count) 笔")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             
             HStack(spacing: 8) {
                 ForEach(categories, id: \.self) { cat in
-                    Button(cat) {
+                    Button {
                         category = cat
                         showSheet = true
+                    } label: {
+                        Text(cat.map { String($0) }.joined(separator: "\n"))
+                            .font(.caption)
+                            .multilineTextAlignment(.center)
+                            .frame(width: 34, height: 46)
                     }
                     .buttonStyle(.bordered)
-                    .font(.caption)
                 }
             }
             .sheet(isPresented: $showSheet) {
@@ -363,33 +369,8 @@ struct QuickExpenseCard: View {
                 .presentationDetents([.height(250)])
             }
 
-            // 记账反馈条
-            if let fb = feedback {
-                HStack(spacing: 8) {
-                    Image(systemName: fb.isWarning ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-                    Text(fb.message)
-                        .font(.caption)
-                        .lineLimit(2)
-                    Spacer()
-                }
-                .foregroundStyle(fb.isWarning ? .red : .green)
-                .padding(10)
-                .background((fb.isWarning ? Color.red : Color.green).opacity(0.1), in: .rect(cornerRadius: 10))
-                .transition(.move(edge: .top).combined(with: .opacity))
-            }
-
             // 今日支出列表
             Divider()
-
-            HStack {
-                Text("今日支出")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                Spacer()
-                Text("共 \(todayExpenses.count) 笔")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
 
             if todayExpenses.isEmpty {
                 Text("今天还没有支出记录")
@@ -430,37 +411,6 @@ struct QuickExpenseCard: View {
         modelContext.insert(record)
         try? modelContext.save()
         amount = ""; note = ""
-
-        let report = SurvivalCalculator.calculate(from: profile)
-        let calendar = Calendar.current
-
-        // 分类本月支出（含刚记的这笔）
-        let monthExpenses = expenses.filter { calendar.isDate($0.date, equalTo: Date(), toGranularity: .month) }
-            .reduce(amt) { $0 + $1.amount }
-        let categoryMonthlyBudget = monthlyBudget(for: category, report: report)
-
-        // 今日总支出（含刚记的这笔）
-        let todayTotal = expenses.filter { calendar.isDateInToday($0.date) }
-            .reduce(amt) { $0 + $1.amount }
-
-        if categoryMonthlyBudget > 0 && monthExpenses > categoryMonthlyBudget {
-            feedback = ("「\(category)」本月已超支 ¥\(Int(monthExpenses - categoryMonthlyBudget))", true)
-        } else if todayTotal > report.dailyBudget && report.dailyBudget > 0 {
-            feedback = ("今日已超预算 ¥\(Int(todayTotal - report.dailyBudget))，注意控制", true)
-        } else if report.dailyBudget > 0 {
-            feedback = ("已记账，今日还剩 ¥\(Int(report.dailyBudget - todayTotal)) 可用", false)
-        }
-    }
-
-    private func monthlyBudget(for cat: String, report: SurvivalReport) -> Double {
-        switch cat {
-        case "食品": return report.foodBudget * 30
-        case "交通": return report.transportBudget * 30
-        case "医疗": return report.medicalBudget * 30
-        case "人情": return report.socialBudget * 30
-        case "购物": return report.shoppingBudget * 30
-        default: return 0
-        }
     }
 
     private func formatCurrency(_ value: Double) -> String {
