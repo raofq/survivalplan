@@ -61,6 +61,19 @@ final class UserProfile {
     init() {}
 }
 
+// MARK: - 家庭成员估算
+extension UserProfile {
+    /// 家庭成员总数（含自己）
+    var familyMemberCount: Int {
+        1 + (hasSpouse ? 1 : 0) + childrenCount + (needsSupportElders ? 1 : 0)
+    }
+
+    /// 按家庭成员估算的生存底线（人均 ¥1500/月，吃饭+日用品），用于一键填入 familyBaseLivingCost
+    var estimatedBaseLivingCost: Double {
+        Double(familyMemberCount) * 1500
+    }
+}
+
 // MARK: - 支出记录
 @Model
 final class ExpenseRecord {

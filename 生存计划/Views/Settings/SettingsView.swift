@@ -219,10 +219,16 @@ struct ProfileEditorView: View {
 
             Section {
                 labeledField("家庭每月基础开销", value: $local.familyBaseLivingCost, suffix: "元/月")
+                Button {
+                    local.familyBaseLivingCost = local.estimatedBaseLivingCost
+                } label: {
+                    Label("按成员数估算（¥\(Int(local.estimatedBaseLivingCost))/月）", systemImage: "wand.and.stars")
+                        .font(.caption)
+                }
             } header: {
                 Text("生存底线")
             } footer: {
-                Text("一家人每月最少要花多少（吃饭+日用品等）。模拟器「目标反推」会用这个数字计算底线")
+                Text("一家人每月最少要花多少（吃饭+日用品）。模拟器「目标反推」会用这个数字计算底线")
             }
 
             Section("积蓄") {

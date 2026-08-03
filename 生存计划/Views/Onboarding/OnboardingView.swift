@@ -244,8 +244,25 @@ struct FamilyView: View {
                 Toggle("需赡养老人", isOn: $profile.needsSupportElders)
             } header: {
                 Text("家庭成员")
+            }
+
+            Section {
+                HStack {
+                    Text("家庭每月基础开销")
+                    Spacer()
+                    NumberField(value: $profile.familyBaseLivingCost)
+                    Text("元/月")
+                }
+                Button {
+                    profile.familyBaseLivingCost = profile.estimatedBaseLivingCost
+                } label: {
+                    Label("按成员数估算（¥\(Int(profile.estimatedBaseLivingCost))/月）", systemImage: "wand.and.stars")
+                        .font(.subheadline)
+                }
+            } header: {
+                Text("生存底线")
             } footer: {
-                Text("家庭成员信息会影响教育支出、生活预算等计算")
+                Text("一家人每月最少要花多少（吃饭+日用品）。按成员数估算后可以手动调整")
             }
         }
     }
