@@ -315,19 +315,23 @@ struct SurvivalTarget {
     let monthlySpendable: Double   // 积蓄 ÷ 目标月数 = 每月最多可花
     let cutNeeded: Double          // 需要削减的月支出（>0 表示还差，<=0 表示已达标）
     let isAchievable: Bool
+    let belowBaseline: Bool        // 每月可花是否低于生存底线
 }
 
 extension SurvivalCalculator {
     /// 目标反推：给定目标月数，计算每月最多可花多少、还差多少需要削减/增收
-    /// - Parameter report: 用于反推的收支快照（可传模拟后的报告，实现联动）
-    static func projectTarget(report: SurvivalReport, targetMonths: Int) -> SurvivalTarget {
+    /// - Parameters:
+    ///   - report: 用于反推的收支快照（可传模拟后的报告，实现联动）
+    ///   - baseline: 家庭生存底线（每月最少开销）；可花额度低于它时给出提醒
+    static func projectTarget(report: SurvivalReport, targetMonths: Int, baseline: Double = 0) -> SurvivalTarget {
         let monthlySpendable = report.totalSavings / Double(max(targetMonths, 1))
         let cutNeeded = report.totalMonthlyExpenses - monthlySpendable
         return SurvivalTarget(
             targetMonths: targetMonths,
             monthlySpendable: monthlySpendable,
             cutNeeded: cutNeeded,
-            isAchievable: cutNeeded <= 0
+            isAchievable: cutNeeded <= 0,
+            belowBaseline: baseline > 0 && monthlySpendable < baseline
         )
     }
 }

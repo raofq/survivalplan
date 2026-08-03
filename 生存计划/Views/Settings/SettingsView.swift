@@ -173,6 +173,30 @@ struct ProfileEditorView: View {
 
     var body: some View {
         Form {
+            // 失业情况（时间锚点）
+            Section {
+                DatePicker("失业日期", selection: Binding(
+                    get: { local.unemploymentDate ?? Date() },
+                    set: { local.unemploymentDate = $0 }
+                ), displayedComponents: .date)
+                if local.unemploymentDate != nil {
+                    Button("清除失业日期", role: .destructive) {
+                        local.unemploymentDate = nil
+                    }
+                    .font(.caption)
+                }
+                if let date = local.unemploymentDate {
+                    let days = Calendar.current.dateComponents([.day], from: date, to: Date()).day ?? 0
+                    Label("已失业 \(max(days, 0)) 天", systemImage: "calendar")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("失业情况")
+            } footer: {
+                Text("记录失业起始日，看板会显示已坚持天数")
+            }
+
             Section("收入来源") {
                 Toggle("领取失业金", isOn: $local.hasUnemploymentBenefit)
                 if local.hasUnemploymentBenefit {
@@ -190,6 +214,15 @@ struct ProfileEditorView: View {
                 }
                 labeledField("配偶收入", value: $local.spouseIncome, suffix: "元/月")
                 labeledField("其他收入", value: $local.otherIncome, suffix: "元/月")
+                labeledField("期望月薪", value: $local.expectedMonthlySalary, suffix: "元/月")
+            }
+
+            Section {
+                labeledField("家庭每月基础开销", value: $local.familyBaseLivingCost, suffix: "元/月")
+            } header: {
+                Text("生存底线")
+            } footer: {
+                Text("一家人每月最少要花多少（吃饭+日用品等）。模拟器「目标反推」会用这个数字计算底线")
             }
 
             Section("积蓄") {
@@ -251,10 +284,31 @@ struct ProfileEditorView: View {
         .navigationTitle("个人信息")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button("保存") { save(); dismiss() }
+                Button("保存") {
+                    save()
+                    withAnimation { showSavedToast = true }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if showSavedToast {
+                Text("已保存 ✓")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .background(.black.opacity(0.75), in: .capsule)
+                    .foregroundStyle(.white)
+                    .padding(.bottom, 30)
+                    .transition(.opacity)
             }
         }
     }
+
+    @State private var showSavedToast = false
 
     private func save() {
         profile.hasUnemploymentBenefit = local.hasUnemploymentBenefit
@@ -264,6 +318,9 @@ struct ProfileEditorView: View {
         profile.partTimeIncome = local.partTimeIncome
         profile.spouseIncome = local.spouseIncome
         profile.otherIncome = local.otherIncome
+        profile.unemploymentDate = local.unemploymentDate
+        profile.expectedMonthlySalary = local.expectedMonthlySalary
+        profile.familyBaseLivingCost = local.familyBaseLivingCost
         profile.savings = local.savings
         profile.hasInvestments = local.hasInvestments
         profile.investments = local.investments

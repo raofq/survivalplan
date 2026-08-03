@@ -50,7 +50,14 @@ final class UserProfile {
     var creditCardDebt: Double = 0
     var onlineLoanDebt: Double = 0
     var privateLoanDebt: Double = 0
-    
+
+    // 失业情况
+    var unemploymentDate: Date? = nil     // 失业起始日（时间锚点，用于计算已失业天数）
+    var expectedMonthlySalary: Double = 0 // 期望月薪（与模拟器反推联动）
+
+    // 生存底线：家庭每月最少开销（吃饭+日用品等），用于目标反推/模拟器
+    var familyBaseLivingCost: Double = 0
+
     init() {}
 }
 

@@ -37,7 +37,7 @@ struct SimulatorView: View {
 
     private var targetResult: SurvivalTarget? {
         // 联动：模拟过就用模拟后的收支，没模拟过用原始数据
-        SurvivalCalculator.projectTarget(report: simulatedReport ?? currentReport, targetMonths: targetMonths)
+        SurvivalCalculator.projectTarget(report: simulatedReport ?? currentReport, targetMonths: targetMonths, baseline: profile.familyBaseLivingCost)
     }
     
     var body: some View {
@@ -253,6 +253,13 @@ struct SimulatorView: View {
                                     .font(.title3)
                                     .fontWeight(.bold)
                                     .foregroundStyle(.blue)
+                            }
+
+                            // 低于生存底线提醒
+                            if target.belowBaseline {
+                                Label("低于家庭生存底线（¥\(Int(profile.familyBaseLivingCost))/月），光靠削减撑不过去，必须找到收入", systemImage: "exclamationmark.triangle.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.red)
                             }
 
                             HStack {

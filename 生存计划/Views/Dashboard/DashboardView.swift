@@ -19,7 +19,7 @@ struct DashboardView: View {
                     RiskCard(report: report)
                     
                     // 概览卡片
-                    OverviewCard(report: report)
+                    OverviewCard(report: report, profile: profile)
                     
                     // 本月可用预算走势
                     FundTimelineCard(report: report, expenses: expenses)
@@ -83,7 +83,8 @@ struct RiskCard: View {
 // MARK: - 概览卡
 struct OverviewCard: View {
     let report: SurvivalReport
-    
+    let profile: UserProfile
+
     var body: some View {
         VStack(spacing: 16) {
             HStack {
@@ -91,8 +92,19 @@ struct OverviewCard: View {
                 Text("财务概览")
                     .font(.headline)
                 Spacer()
+                // 已失业天数（时间锚点）
+                if let date = profile.unemploymentDate {
+                    let days = Calendar.current.dateComponents([.day], from: date, to: Date()).day ?? 0
+                    Text("失业第 \(max(days, 0)) 天")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(.orange.opacity(0.15), in: .capsule)
+                        .foregroundStyle(.orange)
+                }
             }
-            
+
             HStack(spacing: 0) {
                 StatItem(value: "\(Int(report.monthsCanSurvive))", label: "可撑(月)", color: .blue)
                 StatItem(value: formatCurrency(report.dailyBudget), label: "每日预算", color: .green)
