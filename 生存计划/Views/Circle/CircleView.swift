@@ -296,6 +296,16 @@ struct PostDetailView: View {
     let post: Post
     let onLike: () -> Void
 
+    @State private var comments: [CircleComment] = []
+    @State private var commentText = ""
+    @State private var isLoadingComments = false
+    @State private var showCommentError = false
+    @State private var commentError = ""
+
+    private var author: String {
+        UserDefaults.standard.string(forKey: "circle_author") ?? "匿名"
+    }
+
     private var categoryColor: Color {
         switch post.category {
         case "运动": return .green
@@ -341,6 +351,60 @@ struct PostDetailView: View {
                     .font(.body)
                     .lineSpacing(6)
 
+                Divider()
+
+                // 评论区
+                HStack {
+                    Text("评论 \(comments.count)")
+                        .font(.headline)
+                    Spacer()
+                    if isLoadingComments {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                }
+
+                if comments.isEmpty && !isLoadingComments {
+                    Text("还没有评论，说点什么鼓励一下 Ta 吧")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 8)
+                } else {
+                    ForEach(comments) { comment in
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text(comment.author)
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(.orange)
+                                Spacer()
+                                Text(comment.createdAt, format: .dateTime.month().day().hour().minute())
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                            Text(comment.content)
+                                .font(.subheadline)
+                        }
+                        .padding(.vertical, 6)
+                        Divider()
+                    }
+                }
+
+                // 回复输入
+                HStack(spacing: 8) {
+                    TextField("说点什么…", text: $commentText, axis: .vertical)
+                        .textFieldStyle(.roundedBorder)
+                        .lineLimit(1...3)
+                    Button {
+                        submitComment()
+                    } label: {
+                        Image(systemName: "paperplane.fill")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.orange)
+                    .disabled(commentText.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+
                 Spacer(minLength: 24)
 
                 // 点赞
@@ -361,5 +425,39 @@ struct PostDetailView: View {
         }
         .navigationTitle("帖子详情")
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await loadComments()
+        }
+        .alert("评论失败", isPresented: $showCommentError) {
+            Button("好") {}
+        } message: {
+            Text(commentError)
+        }
+    }
+
+    private func loadComments() async {
+        isLoadingComments = true
+        defer { isLoadingComments = false }
+        do {
+            comments = try await CircleAPI.fetchComments(postId: post.id)
+        } catch {
+            commentError = "无法加载评论：\(error.localizedDescription)"
+            showCommentError = true
+        }
+    }
+
+    private func submitComment() {
+        let text = commentText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        Task {
+            do {
+                let comment = try await CircleAPI.createComment(postId: post.id, content: text, author: author)
+                comments.append(comment)
+                commentText = ""
+            } catch {
+                commentError = "评论失败：\(error.localizedDescription)"
+                showCommentError = true
+            }
+        }
     }
 }

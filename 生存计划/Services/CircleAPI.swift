@@ -43,6 +43,65 @@ enum CircleAPI {
         }
         return try JSONDecoder().decode(PostDTO.self, from: data).toPost()
     }
+
+    // 拉取帖子评论
+    static func fetchComments(postId: String) async throws -> [CircleComment] {
+        let url = baseURL.appendingPathComponent("posts/\(postId)/comments")
+        let (data, response) = try await URLSession.shared.data(from: url)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw URLError(.badServerResponse)
+        }
+        return try JSONDecoder().decode([CommentDTO].self, from: data).map { $0.toComment() }
+    }
+
+    // 发表评论
+    static func createComment(postId: String, content: String, author: String) async throws -> CircleComment {
+        var request = URLRequest(url: baseURL.appendingPathComponent("posts/\(postId)/comments"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(CommentDTO(
+            id: nil, postId: postId, content: content, author: author, createdAt: nil
+        ))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw URLError(.badServerResponse)
+        }
+        return try JSONDecoder().decode(CommentDTO.self, from: data).toComment()
+    }
+}
+
+// MARK: - 评论
+struct CircleComment: Identifiable {
+    let id: String
+    let postId: String
+    let content: String
+    let author: String
+    let createdAt: Date
+}
+
+struct CommentDTO: Codable {
+    let id: String?
+    let postId: String?
+    let content: String
+    let author: String
+    let createdAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, content, author
+        case postId = "post_id"
+        case createdAt = "created_at"
+    }
+
+    func toComment() -> CircleComment {
+        let date = createdAt.flatMap { ISO8601DateFormatter().date(from: $0) } ?? Date()
+        return CircleComment(
+            id: id ?? UUID().uuidString,
+            postId: postId ?? "",
+            content: content,
+            author: author,
+            createdAt: date
+        )
+    }
 }
 
 // MARK: - DTO（与后端 JSON 对齐）
@@ -54,6 +113,11 @@ struct PostDTO: Codable {
     let author: String
     let likes: Int?
     let createdAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, category, title, content, author, likes
+        case createdAt = "created_at"
+    }
 
     func toPost() -> Post {
         let date = createdAt.flatMap { ISO8601DateFormatter().date(from: $0) } ?? Date()
