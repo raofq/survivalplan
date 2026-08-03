@@ -138,11 +138,21 @@ struct WorkoutView: View {
         record.date = Date()
         modelContext.insert(record)
         try? modelContext.save()
+        let workoutType = selectedType
+        let durationMins = mins
+        let streak = streakDays + 1
         duration = ""
         note = ""
         showFeedback = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             withAnimation { showFeedback = false }
+        }
+        // 打卡联动：自动分享到圈子
+        let author = UserDefaults.standard.string(forKey: "circle_author") ?? "匿名"
+        Task {
+            let title = "运动打卡第 \(streak) 天"
+            let content = "今天\(workoutType) \(durationMins) 分钟，连续打卡 \(streak) 天。一起来互相监督吧！"
+            try? await CircleAPI.createPost(category: "运动", title: title, content: content, author: author)
         }
     }
 }

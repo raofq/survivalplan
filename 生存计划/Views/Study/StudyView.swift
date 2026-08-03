@@ -125,12 +125,22 @@ struct StudyView: View {
         record.date = Date()
         modelContext.insert(record)
         try? modelContext.save()
+        let studySkill = skill
+        let durationMins = mins
+        let totalCount = records.count + 1
         skill = ""
         content = ""
         duration = ""
         showFeedback = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             withAnimation { showFeedback = false }
+        }
+        // 打卡联动：自动分享到圈子
+        let author = UserDefaults.standard.string(forKey: "circle_author") ?? "匿名"
+        Task {
+            let title = "学习打卡第 \(totalCount) 次"
+            let content = "今天学了 \(studySkill) \(durationMins) 分钟，累计学习 \(totalCount) 次。失业期也要充电！"
+            try? await CircleAPI.createPost(category: "学习", title: title, content: content, author: author)
         }
     }
 }
