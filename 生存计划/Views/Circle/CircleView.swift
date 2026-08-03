@@ -225,7 +225,6 @@ struct CircleView: View {
                 let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, deviceId: showOnlyMine ? CircleAPI.deviceID : nil, offset: 0, limit: pageSize)
                 posts = fetched
                 hasMorePosts = fetched.count == pageSize
-                cachePostsLocally(fetched)
             }
         } catch {
             errorMessage = "无法连接服务器（\(error.localizedDescription)）。请确认后端服务已启动。"
@@ -244,7 +243,6 @@ struct CircleView: View {
                 let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, deviceId: showOnlyMine ? CircleAPI.deviceID : nil, offset: 0, limit: pageSize)
                 posts = fetched
                 hasMorePosts = fetched.count == pageSize
-                cachePostsLocally(fetched)
             }
         } catch {
             // 下拉刷新失败静默，保留现有列表
@@ -259,32 +257,9 @@ struct CircleView: View {
             let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, deviceId: showOnlyMine ? CircleAPI.deviceID : nil, offset: posts.count, limit: pageSize)
             posts.append(contentsOf: fetched)
             hasMorePosts = fetched.count == pageSize
-            cachePostsLocally(fetched)
         } catch {
             // 加载更多失败静默
         }
-    }
-
-    /// 把云端拉到的帖子写入本地 SwiftData 缓存（按 id 去重，保留本地标记如点赞/收藏）
-    private func cachePostsLocally(_ fetched: [Post]) {
-        for post in fetched {
-            if let existing = cachedPosts.first(where: { $0.id == post.id }) {
-                existing.category = post.category
-                existing.title = post.title
-                existing.content = post.content
-                existing.author = post.author
-                existing.likes = post.likes
-                existing.imageURL = post.imageURL
-                existing.imageURLs = post.imageURLs
-                existing.location = post.location
-                existing.salary = post.salary
-                existing.createdAt = post.createdAt
-                // isLikedByMe / deviceId 保留本地值（云端不下发）
-            } else {
-                modelContext.insert(post)
-            }
-        }
-        try? modelContext.save()
     }
 
     private func deletePost(_ post: Post) async {
