@@ -14,10 +14,10 @@ final class Post {
     var imageURLs: [String] = []
     var location: String? = nil
     var salary: String? = nil
-    var isFavorited: Bool = false
+    var isLikedByMe: Bool = false
     var createdAt: Date = Date()
 
-    init(id: String = UUID().uuidString, category: String, title: String, content: String, author: String, likes: Int = 0, imageURL: String? = nil, imageURLs: [String] = [], location: String? = nil, salary: String? = nil, isFavorited: Bool = false, createdAt: Date = Date()) {
+    init(id: String = UUID().uuidString, category: String, title: String, content: String, author: String, likes: Int = 0, imageURL: String? = nil, imageURLs: [String] = [], location: String? = nil, salary: String? = nil, isLikedByMe: Bool = false, createdAt: Date = Date()) {
         self.id = id
         self.category = category
         self.title = title
@@ -28,7 +28,7 @@ final class Post {
         self.imageURLs = imageURLs
         self.location = location
         self.salary = salary
-        self.isFavorited = isFavorited
+        self.isLikedByMe = isLikedByMe
         self.createdAt = createdAt
     }
 }
