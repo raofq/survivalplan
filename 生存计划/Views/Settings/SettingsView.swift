@@ -640,6 +640,7 @@ struct DataManageView: View {
     @State private var pendingBackup: BackupData?
     private var restoreTitle: String { "备份/恢复" }
 
+    @MainActor
     private func doRestore() {
         guard let backup = pendingBackup else { return }
         do {
