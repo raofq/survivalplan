@@ -130,9 +130,9 @@ struct CircleView: View {
                 }
             }
             .sheet(isPresented: $showNewPost) {
-                NewPostSheet(author: author) { category, title, content, imageURL in
+                NewPostSheet(author: author) { category, title, content, imageURLs in
                     Task {
-                        await createPost(category: category, title: title, content: content, imageURL: imageURL)
+                        await createPost(category: category, title: title, content: content, imageURLs: imageURLs)
                     }
                 }
             }
@@ -160,9 +160,9 @@ struct CircleView: View {
         }
     }
 
-    private func createPost(category: String, title: String, content: String, imageURL: String?) async {
+    private func createPost(category: String, title: String, content: String, imageURLs: [String]) async {
         do {
-            let post = try await CircleAPI.createPost(category: category, title: title, content: content, author: author, imageURL: imageURL)
+            let post = try await CircleAPI.createPost(category: category, title: title, content: content, author: author, imageURLs: imageURLs)
             modelContext.insert(post)
             try? modelContext.save()
             await loadPosts()
@@ -223,7 +223,7 @@ struct PostCard: View {
                 .font(.subheadline)
                 .fontWeight(.semibold)
 
-            if let url = CircleAPI.absoluteURL(post.imageURL) {
+            if let url = CircleAPI.absoluteURL(post.imageURLs.first) {
                 AsyncImage(url: url) { phase in
                     switch phase {
                     case .success(let image):
@@ -233,6 +233,18 @@ struct PostCard: View {
                             .frame(maxWidth: .infinity)
                             .frame(height: 160)
                             .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .overlay(alignment: .bottomTrailing) {
+                                if post.imageURLs.count > 1 {
+                                    Text("\(post.imageURLs.count) 张")
+                                        .font(.caption2)
+                                        .fontWeight(.semibold)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 3)
+                                        .background(.black.opacity(0.6), in: .capsule)
+                                        .foregroundStyle(.white)
+                                        .padding(6)
+                                }
+                            }
                     case .failure:
                         Rectangle()
                             .fill(Color(.secondarySystemBackground))
@@ -270,18 +282,19 @@ struct PostCard: View {
 // MARK: - 发帖
 struct NewPostSheet: View {
     let author: String
-    let onPost: (String, String, String, String?) -> Void
+    let onPost: (String, String, String, [String]) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var category = "树洞"
     @State private var title = ""
     @State private var content = ""
-    @State private var selectedImage: UIImage?
+    @State private var selectedImages: [UIImage] = []
     @State private var isUploading = false
     @State private var showPicker = false
     @State private var uploadError = false
 
     let categories = ["运动", "学习", "搞钱", "教育", "树洞", "工作"]
+    private let maxImages = 9
 
     var body: some View {
         NavigationStack {
@@ -302,24 +315,42 @@ struct NewPostSheet: View {
                         .frame(height: 120)
                 }
 
-                Section("图片（选填）") {
-                    if let image = selectedImage {
-                        HStack(alignment: .top) {
+                Section("图片（选填，最多 \(maxImages) 张）") {
+                    // 九宫格预览
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
+                        ForEach(Array(selectedImages.enumerated()), id: \.offset) { index, image in
                             Image(uiImage: image)
                                 .resizable()
                                 .scaledToFill()
-                                .frame(width: 80, height: 80)
+                                .frame(height: 90)
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
-                            Spacer()
-                            Button("移除") { selectedImage = nil }
-                                .font(.caption)
+                                .overlay(alignment: .topTrailing) {
+                                    Button {
+                                        selectedImages.remove(at: index)
+                                    } label: {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .font(.title3)
+                                            .foregroundStyle(.white, .black.opacity(0.6))
+                                            .padding(2)
+                                    }
+                                }
                         }
-                    } else {
-                        Button {
-                            showPicker = true
-                        } label: {
-                            Label("从相册选择图片", systemImage: "photo.on.rectangle")
-                                .font(.subheadline)
+                        if selectedImages.count < maxImages {
+                            Button {
+                                showPicker = true
+                            } label: {
+                                VStack(spacing: 4) {
+                                    Image(systemName: "photo.badge.plus")
+                                        .font(.title2)
+                                    Text("\(selectedImages.count)/\(maxImages)")
+                                        .font(.caption2)
+                                }
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 90)
+                                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 8))
+                            }
+                            .disabled(isUploading)
                         }
                     }
                     if isUploading {
@@ -346,7 +377,7 @@ struct NewPostSheet: View {
                 }
             }
             .sheet(isPresented: $showPicker) {
-                PhotoPicker(selectedImage: $selectedImage)
+                PhotoPicker(selectedImages: $selectedImages, maxCount: maxImages - selectedImages.count)
             }
             .alert("上传失败", isPresented: $uploadError) {
                 Button("好") {}
@@ -357,16 +388,19 @@ struct NewPostSheet: View {
     }
 
     private func submit() {
-        guard let image = selectedImage else {
-            onPost(category, title, content, nil)
+        guard !selectedImages.isEmpty else {
+            onPost(category, title, content, [])
             dismiss()
             return
         }
         isUploading = true
         Task {
+            var urls: [String] = []
             do {
-                let url = try await CircleAPI.uploadImage(image)
-                onPost(category, title, content, url)
+                for image in selectedImages {
+                    urls.append(try await CircleAPI.uploadImage(image))
+                }
+                onPost(category, title, content, urls)
                 dismiss()
             } catch {
                 uploadError = true
@@ -376,9 +410,10 @@ struct NewPostSheet: View {
     }
 }
 
-// MARK: - 相册选择
+// MARK: - 相册选择（多选）
 struct PhotoPicker: UIViewControllerRepresentable {
-    @Binding var selectedImage: UIImage?
+    @Binding var selectedImages: [UIImage]
+    let maxCount: Int
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
@@ -396,7 +431,11 @@ struct PhotoPicker: UIViewControllerRepresentable {
         init(_ parent: PhotoPicker) { self.parent = parent }
 
         func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
-            parent.selectedImage = info[.originalImage] as? UIImage
+            // UIImagePickerController 单张；这里追加一张，直到 9 张上限
+            if let image = info[.originalImage] as? UIImage,
+               parent.selectedImages.count < parent.maxCount {
+                parent.selectedImages.append(image)
+            }
             picker.dismiss(animated: true)
         }
 
@@ -416,6 +455,7 @@ struct PostDetailView: View {
     @State private var isLoadingComments = false
     @State private var showCommentError = false
     @State private var commentError = ""
+    @State private var pageIndex = 0
 
     private var author: String {
         UserDefaults.standard.string(forKey: "circle_author") ?? "匿名"
@@ -466,26 +506,47 @@ struct PostDetailView: View {
                     .font(.body)
                     .lineSpacing(6)
 
-                // 详情大图
-                if let url = CircleAPI.absoluteURL(post.imageURL) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .scaledToFit()
-                                .frame(maxWidth: .infinity)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                        case .failure:
-                            Rectangle()
-                                .fill(Color(.secondarySystemBackground))
-                                .frame(height: 200)
-                                .overlay(Image(systemName: "photo").foregroundStyle(.secondary))
-                        default:
-                            Rectangle()
-                                .fill(Color(.secondarySystemBackground))
-                                .frame(height: 200)
-                                .overlay(ProgressView())
+                // 详情图片（多图横向滑动 + 页码）
+                if !post.imageURLs.isEmpty {
+                    let urls = post.imageURLs.compactMap { CircleAPI.absoluteURL($0) }
+                    if !urls.isEmpty {
+                        TabView {
+                            ForEach(Array(urls.enumerated()), id: \.offset) { _, url in
+                                AsyncImage(url: url) { phase in
+                                    switch phase {
+                                    case .success(let image):
+                                        image
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(maxWidth: .infinity)
+                                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    case .failure:
+                                        Rectangle()
+                                            .fill(Color(.secondarySystemBackground))
+                                            .frame(height: 200)
+                                            .overlay(Image(systemName: "photo").foregroundStyle(.secondary))
+                                    default:
+                                        Rectangle()
+                                            .fill(Color(.secondarySystemBackground))
+                                            .frame(height: 200)
+                                            .overlay(ProgressView())
+                                    }
+                                }
+                            }
+                        }
+                        .tabViewStyle(.page)
+                        .frame(height: 260)
+                        .overlay(alignment: .bottomTrailing) {
+                            if urls.count > 1 {
+                                Text("\(pageIndex + 1)/\(urls.count)")
+                                    .font(.caption2)
+                                    .fontWeight(.semibold)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(.black.opacity(0.6), in: .capsule)
+                                    .foregroundStyle(.white)
+                                    .padding(8)
+                            }
                         }
                     }
                 }

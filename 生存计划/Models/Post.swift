@@ -11,9 +11,10 @@ final class Post {
     var author: String = ""
     var likes: Int = 0
     var imageURL: String? = nil
+    var imageURLs: [String] = []
     var createdAt: Date = Date()
 
-    init(id: String = UUID().uuidString, category: String, title: String, content: String, author: String, likes: Int = 0, imageURL: String? = nil, createdAt: Date = Date()) {
+    init(id: String = UUID().uuidString, category: String, title: String, content: String, author: String, likes: Int = 0, imageURL: String? = nil, imageURLs: [String] = [], createdAt: Date = Date()) {
         self.id = id
         self.category = category
         self.title = title
@@ -21,6 +22,7 @@ final class Post {
         self.author = author
         self.likes = likes
         self.imageURL = imageURL
+        self.imageURLs = imageURLs
         self.createdAt = createdAt
     }
 }
