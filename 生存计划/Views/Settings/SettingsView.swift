@@ -501,7 +501,17 @@ struct DataManageView: View {
     let profile: UserProfile
     let expenses: [ExpenseRecord]
     @Environment(\.modelContext) private var modelContext
+    @Query private var workouts: [WorkoutRecord]
+    @Query private var studies: [StudyRecord]
     @State private var showExportSuccess = false
+    @State private var showBackupSuccess = false
+    @State private var showRestoreConfirm = false
+    @State private var showRestoreResult = false
+    @State private var restoreMessage = ""
+    @State private var backupDocument: BackupFileDocument?
+    @State private var showFileExporter = false
+    @State private var showFileImporter = false
+    @State private var showProLock = false
 
     var body: some View {
         Form {
@@ -520,16 +530,6 @@ struct DataManageView: View {
                 }
                 .disabled(expenses.isEmpty)
 
-                // Pro：完整导出包
-                HStack {
-                    Label("完整导出（含圈子/打卡/图片）", systemImage: ProFeatures.fullExport ? "externaldrive.fill" : "lock.fill")
-                        .foregroundStyle(.primary)
-                    Spacer()
-                    if !ProFeatures.fullExport {
-                        ProLock.badge()
-                    }
-                }
-
                 if showExportSuccess {
                     Text("CSV 已生成，请分享到文件或邮件")
                         .font(.caption)
@@ -537,6 +537,45 @@ struct DataManageView: View {
                 }
             } header: {
                 Text("支出记录")
+            }
+
+            // Pro：JSON 备份 / 恢复
+            Section {
+                Button {
+                    guard ProFeatures.fullExport else { showProLock = true; return }
+                    do {
+                        let data = try DataBackup.encode(profile: profile, expenses: expenses, workouts: workouts, studies: studies)
+                        backupDocument = BackupFileDocument(data: data)
+                        showFileExporter = true
+                    } catch {
+                        restoreMessage = "备份失败：\(error.localizedDescription)"
+                        showRestoreResult = true
+                    }
+                } label: {
+                    Label("备份到文件（JSON）", systemImage: ProFeatures.fullExport ? "externaldrive.fill" : "lock.fill")
+                }
+
+                Button {
+                    guard ProFeatures.fullExport else { showProLock = true; return }
+                    showFileImporter = true
+                } label: {
+                    Label("从文件恢复（JSON）", systemImage: ProFeatures.fullExport ? "arrow.down.doc.fill" : "lock.fill")
+                }
+
+                if showBackupSuccess {
+                    Text("备份已生成，请选择保存位置")
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                }
+            } header: {
+                HStack(spacing: 6) {
+                    Text("完整备份")
+                    if !ProFeatures.fullExport {
+                        ProLock.badge()
+                    }
+                }
+            } footer: {
+                Text("备份包含个人信息、支出、打卡和学习记录；恢复会覆盖当前数据（圈子帖子除外）。")
             }
 
             Section {
@@ -558,6 +597,58 @@ struct DataManageView: View {
             }
         }
         .navigationTitle("数据管理")
+        .fileExporter(isPresented: $showFileExporter, document: backupDocument, contentType: .json, defaultFilename: "survival_plan_backup") { result in
+            if case .success = result {
+                showBackupSuccess = true
+            }
+        }
+        .fileImporter(isPresented: $showFileImporter, allowedContentTypes: [.json]) { result in
+            guard case .success(let url) = result else { return }
+            do {
+                let data = try Data(contentsOf: url)
+                let backup = try DataBackup.decode(data)
+                pendingBackup = backup
+                showRestoreConfirm = true
+            } catch {
+                restoreMessage = "文件无效或格式不匹配：\(error.localizedDescription)"
+                showRestoreResult = true
+            }
+        }
+        .alert("恢复数据？", isPresented: $showRestoreConfirm) {
+            Button("恢复", role: .destructive) {
+                doRestore()
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("恢复将覆盖当前的支出、打卡和学习记录，此操作不可撤销。")
+        }
+        .alert(restoreTitle, isPresented: $showRestoreResult) {
+            Button("好") {}
+        } message: {
+            Text(restoreMessage)
+        }
+        .alert("Pro 专属功能", isPresented: $showProLock) {
+            Button("去解锁") {
+                StoreManager.shared.showPaywall = true
+            }
+            Button("好", role: .cancel) {}
+        } message: {
+            Text(ProLock.message(for: "完整备份/恢复"))
+        }
+    }
+
+    @State private var pendingBackup: BackupData?
+    private var restoreTitle: String { "备份/恢复" }
+
+    private func doRestore() {
+        guard let backup = pendingBackup else { return }
+        do {
+            try DataBackup.restore(backup, into: modelContext, existingProfile: profile)
+            restoreMessage = "恢复成功：\(backup.expenses.count) 条支出、\(backup.workouts.count) 条运动、\(backup.studies.count) 条学习记录"
+        } catch {
+            restoreMessage = "恢复失败：\(error.localizedDescription)"
+        }
+        showRestoreResult = true
     }
 
     private func exportCSV() {
@@ -576,6 +667,24 @@ struct DataManageView: View {
         // Save to clipboard and show success
         UIPasteboard.general.string = csv
         showExportSuccess = true
+    }
+}
+
+// MARK: - 备份文件（FileDocument）
+struct BackupFileDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.json] }
+    var data: Data
+
+    init(data: Data) {
+        self.data = data
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        data = configuration.file.regularFileContents ?? Data()
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
     }
 }
 
