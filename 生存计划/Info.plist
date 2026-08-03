@@ -7,5 +7,7 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>发帖时可以选择相册中的图片分享给大家</string>
 </dict>
 </plist>

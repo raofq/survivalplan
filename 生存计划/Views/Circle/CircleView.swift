@@ -130,9 +130,9 @@ struct CircleView: View {
                 }
             }
             .sheet(isPresented: $showNewPost) {
-                NewPostSheet(author: author) { category, title, content in
+                NewPostSheet(author: author) { category, title, content, imageURL in
                     Task {
-                        await createPost(category: category, title: title, content: content)
+                        await createPost(category: category, title: title, content: content, imageURL: imageURL)
                     }
                 }
             }
@@ -160,9 +160,9 @@ struct CircleView: View {
         }
     }
 
-    private func createPost(category: String, title: String, content: String) async {
+    private func createPost(category: String, title: String, content: String, imageURL: String?) async {
         do {
-            let post = try await CircleAPI.createPost(category: category, title: title, content: content, author: author)
+            let post = try await CircleAPI.createPost(category: category, title: title, content: content, author: author, imageURL: imageURL)
             modelContext.insert(post)
             try? modelContext.save()
             await loadPosts()
@@ -223,6 +223,30 @@ struct PostCard: View {
                 .font(.subheadline)
                 .fontWeight(.semibold)
 
+            if let url = CircleAPI.absoluteURL(post.imageURL) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 160)
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                    case .failure:
+                        Rectangle()
+                            .fill(Color(.secondarySystemBackground))
+                            .frame(height: 160)
+                            .overlay(Image(systemName: "photo").foregroundStyle(.secondary))
+                    default:
+                        Rectangle()
+                            .fill(Color(.secondarySystemBackground))
+                            .frame(height: 160)
+                            .overlay(ProgressView())
+                    }
+                }
+            }
+
             Text(post.content)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -246,12 +270,16 @@ struct PostCard: View {
 // MARK: - 发帖
 struct NewPostSheet: View {
     let author: String
-    let onPost: (String, String, String) -> Void
+    let onPost: (String, String, String, String?) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var category = "树洞"
     @State private var title = ""
     @State private var content = ""
+    @State private var selectedImage: UIImage?
+    @State private var isUploading = false
+    @State private var showPicker = false
+    @State private var uploadError = false
 
     let categories = ["运动", "学习", "搞钱", "教育", "树洞", "工作"]
 
@@ -271,7 +299,32 @@ struct NewPostSheet: View {
 
                 Section("内容") {
                     TextEditor(text: $content)
-                        .frame(height: 140)
+                        .frame(height: 120)
+                }
+
+                Section("图片（选填）") {
+                    if let image = selectedImage {
+                        HStack(alignment: .top) {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 80, height: 80)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                            Spacer()
+                            Button("移除") { selectedImage = nil }
+                                .font(.caption)
+                        }
+                    } else {
+                        Button {
+                            showPicker = true
+                        } label: {
+                            Label("从相册选择图片", systemImage: "photo.on.rectangle")
+                                .font(.subheadline)
+                        }
+                    }
+                    if isUploading {
+                        ProgressView("上传中…")
+                    }
                 }
             }
             .navigationTitle("发布帖子")
@@ -280,13 +333,75 @@ struct NewPostSheet: View {
                     Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("发布") {
-                        onPost(category, title, content)
-                        dismiss()
+                    Button {
+                        submit()
+                    } label: {
+                        if isUploading {
+                            ProgressView()
+                        } else {
+                            Text("发布")
+                        }
                     }
-                    .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || isUploading)
                 }
             }
+            .sheet(isPresented: $showPicker) {
+                PhotoPicker(selectedImage: $selectedImage)
+            }
+            .alert("上传失败", isPresented: $uploadError) {
+                Button("好") {}
+            } message: {
+                Text("图片上传失败，请重试")
+            }
+        }
+    }
+
+    private func submit() {
+        guard let image = selectedImage else {
+            onPost(category, title, content, nil)
+            dismiss()
+            return
+        }
+        isUploading = true
+        Task {
+            do {
+                let url = try await CircleAPI.uploadImage(image)
+                onPost(category, title, content, url)
+                dismiss()
+            } catch {
+                uploadError = true
+            }
+            isUploading = false
+        }
+    }
+}
+
+// MARK: - 相册选择
+struct PhotoPicker: UIViewControllerRepresentable {
+    @Binding var selectedImage: UIImage?
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .photoLibrary
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let parent: PhotoPicker
+        init(_ parent: PhotoPicker) { self.parent = parent }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            parent.selectedImage = info[.originalImage] as? UIImage
+            picker.dismiss(animated: true)
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            picker.dismiss(animated: true)
         }
     }
 }
@@ -351,6 +466,30 @@ struct PostDetailView: View {
                     .font(.body)
                     .lineSpacing(6)
 
+                // 详情大图
+                if let url = CircleAPI.absoluteURL(post.imageURL) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxWidth: .infinity)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        case .failure:
+                            Rectangle()
+                                .fill(Color(.secondarySystemBackground))
+                                .frame(height: 200)
+                                .overlay(Image(systemName: "photo").foregroundStyle(.secondary))
+                        default:
+                            Rectangle()
+                                .fill(Color(.secondarySystemBackground))
+                                .frame(height: 200)
+                                .overlay(ProgressView())
+                        }
+                    }
+                }
+
                 Divider()
 
                 // 评论区
@@ -391,18 +530,33 @@ struct PostDetailView: View {
                 }
 
                 // 回复输入
-                HStack(spacing: 8) {
-                    TextField("说点什么…", text: $commentText, axis: .vertical)
-                        .textFieldStyle(.roundedBorder)
-                        .lineLimit(1...3)
-                    Button {
-                        submitComment()
-                    } label: {
-                        Image(systemName: "paperplane.fill")
+                VStack(alignment: .leading, spacing: 6) {
+                    // 常用 emoji 快捷栏
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(["👍", "❤️", "💪", "😄", "😭", "🙏", "🤝", "✨", "加油", "抱抱"], id: \.self) { emoji in
+                                Button(emoji) {
+                                    commentText += emoji
+                                }
+                                .buttonStyle(.bordered)
+                                .font(.caption)
+                            }
+                        }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.orange)
-                    .disabled(commentText.trimmingCharacters(in: .whitespaces).isEmpty)
+
+                    HStack(spacing: 8) {
+                        TextField("说点什么…", text: $commentText, axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .lineLimit(1...3)
+                        Button {
+                            submitComment()
+                        } label: {
+                            Image(systemName: "paperplane.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.orange)
+                        .disabled(commentText.trimmingCharacters(in: .whitespaces).isEmpty)
+                    }
                 }
 
                 Spacer(minLength: 24)
