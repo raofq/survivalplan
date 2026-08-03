@@ -13,12 +13,15 @@ enum CircleAPI {
         return URL(string: path, relativeTo: serverRoot)?.absoluteURL
     }
 
-    // 拉取帖子（可选按分类，分页）
-    static func fetchPosts(category: String? = nil, offset: Int = 0, limit: Int = 20) async throws -> [Post] {
+    // 拉取帖子（可选按分类/作者，分页）
+    static func fetchPosts(category: String? = nil, author: String? = nil, offset: Int = 0, limit: Int = 20) async throws -> [Post] {
         var url = baseURL.appendingPathComponent("posts")
         var query: [URLQueryItem] = []
         if let category, category != "全部" {
             query.append(URLQueryItem(name: "category", value: category))
+        }
+        if let author {
+            query.append(URLQueryItem(name: "author", value: author))
         }
         query.append(URLQueryItem(name: "offset", value: String(offset)))
         query.append(URLQueryItem(name: "limit", value: String(limit)))
@@ -30,6 +33,16 @@ enum CircleAPI {
             throw URLError(.badServerResponse)
         }
         return try JSONDecoder().decode([PostDTO].self, from: data).map { $0.toPost() }
+    }
+
+    // 删除自己的帖子
+    static func deletePost(id: String, author: String) async throws {
+        var request = URLRequest(url: baseURL.appendingPathComponent("posts/\(id)").appending(queryItems: [URLQueryItem(name: "author", value: author)]))
+        request.httpMethod = "DELETE"
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw URLError(.badServerResponse)
+        }
     }
 
     // 发布帖子

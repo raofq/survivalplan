@@ -16,6 +16,7 @@ struct CircleView: View {
     @State private var errorMessage = ""
     @State private var showNewPost = false
     @State private var showCheckIn = false
+    @State private var showOnlyMine = false
     @State private var author = UserDefaults.standard.string(forKey: "circle_author") ?? "匿名"
 
     let categories = ["全部", "运动", "学习", "搞钱", "教育", "树洞", "工作"]
@@ -104,7 +105,9 @@ struct CircleView: View {
                                         Task { await like(post) }
                                     }
                                 } label: {
-                                    PostCard(post: post) {
+                                    PostCard(post: post, isMine: post.author == author, onDelete: {
+                                        Task { await deletePost(post) }
+                                    }) {
                                         Task { await like(post) }
                                     }
                                 }
@@ -151,15 +154,25 @@ struct CircleView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
+                        Button(showOnlyMine ? "查看全部帖子" : "只看我的帖子") {
+                            showOnlyMine.toggle()
+                            Task { await loadPosts() }
+                        }
+                        Divider()
                         Button("匿名") { author = "匿名"; UserDefaults.standard.set("匿名", forKey: "circle_author") }
                         Button("匿名用户\(Int.random(in: 100...999))") {
                             author = "匿名用户\(Int.random(in: 100...999))"
                             UserDefaults.standard.set(author, forKey: "circle_author")
                         }
                     } label: {
-                        Text(author)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        if showOnlyMine {
+                            Label(author, systemImage: "person.crop.circle.fill.badge.checkmark")
+                                .font(.caption)
+                        } else {
+                            Text(author)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
             }
@@ -185,20 +198,20 @@ struct CircleView: View {
         isLoading = true
         defer { isLoading = false }
         do {
-            let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, offset: 0, limit: pageSize)
+            let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, author: showOnlyMine ? author : nil, offset: 0, limit: pageSize)
             posts = fetched
             hasMorePosts = fetched.count == pageSize
         } catch {
             errorMessage = "无法连接服务器（\(error.localizedDescription)）。请确认后端服务已启动。"
             showError = true
-            posts = cachedPosts.filter { selectedCategory == "全部" || $0.category == selectedCategory }
+            posts = cachedPosts.filter { (selectedCategory == "全部" || $0.category == selectedCategory) && (!showOnlyMine || $0.author == author) }
             hasMorePosts = false
         }
     }
 
     private func refreshPosts() async {
         do {
-            let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, offset: 0, limit: pageSize)
+            let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, author: showOnlyMine ? author : nil, offset: 0, limit: pageSize)
             posts = fetched
             hasMorePosts = fetched.count == pageSize
         } catch {
@@ -211,11 +224,23 @@ struct CircleView: View {
         isLoadingMore = true
         defer { isLoadingMore = false }
         do {
-            let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, offset: posts.count, limit: pageSize)
+            let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, author: showOnlyMine ? author : nil, offset: posts.count, limit: pageSize)
             posts.append(contentsOf: fetched)
             hasMorePosts = fetched.count == pageSize
         } catch {
             // 加载更多失败静默
+        }
+    }
+
+    private func deletePost(_ post: Post) async {
+        do {
+            try await CircleAPI.deletePost(id: post.id, author: author)
+            posts.removeAll { $0.id == post.id }
+            modelContext.delete(post)
+            try? modelContext.save()
+        } catch {
+            errorMessage = "删除失败：\(error.localizedDescription)"
+            showError = true
         }
     }
 
@@ -245,9 +270,12 @@ struct CircleView: View {
 // MARK: - 帖子卡片
 struct PostCard: View {
     let post: Post
+    let isMine: Bool
+    let onDelete: () -> Void
     let onLike: () -> Void
     @State private var showReport = false
     @State private var showReported = false
+    @State private var showDeleteConfirm = false
 
     private var categoryColor: Color {
         switch post.category {
@@ -364,11 +392,27 @@ struct PostCard: View {
                 .stroke(post.category == "工作" ? Color.orange.opacity(0.6) : .clear, lineWidth: 1.5)
         )
         .contextMenu {
-            Button(role: .destructive) {
-                showReport = true
-            } label: {
-                Label("举报", systemImage: "exclamationmark.bubble")
+            if isMine {
+                Button(role: .destructive) {
+                    showDeleteConfirm = true
+                } label: {
+                    Label("删除", systemImage: "trash")
+                }
+            } else {
+                Button(role: .destructive) {
+                    showReport = true
+                } label: {
+                    Label("举报", systemImage: "exclamationmark.bubble")
+                }
             }
+        }
+        .confirmationDialog("删除这个帖子？", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
+            Button("删除", role: .destructive) {
+                onDelete()
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("删除后无法恢复")
         }
         .confirmationDialog("举报这个帖子？", isPresented: $showReport, titleVisibility: .visible) {
             ForEach(["广告/营销", "人身攻击", "色情低俗", "诈骗信息", "其他"], id: \.self) { reason in
