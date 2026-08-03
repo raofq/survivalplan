@@ -284,11 +284,11 @@ struct SimulatorView: View {
                         }
                         .padding()
                         .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
+                        .id("simResult")
 
                         // 资金曲线对比
                         TimelineComparisonChart(current: currentReport, simulated: report)
                     }
-                    .id("simResult")
                 }
                 .padding()
                 }
