@@ -101,46 +101,39 @@ struct CircleView: View {
                             .padding(.vertical, 24)
                         } else {
                             ForEach(posts) { post in
-                                NavigationLink {
-                                    PostDetailView(post: post) {
-                                        Task { await like(post) }
-                                    }
-                                } label: {
-                                    PostCard(post: post, isMine: post.author == author, onDelete: {
-                                        Task { await deletePost(post) }
-                                    }) {
-                                        Task { await like(post) }
-                                    }
-                                }
-                                .buttonStyle(.plain)
+                                PostCard(post: post, isMine: post.author == author, onDelete: {
+                                    Task { await deletePost(post) }
+                                }, onLike: {
+                                    Task { await like(post) }
+                                })
                             }
+                        }
 
-                            // 加载更多
-                            if hasMorePosts {
-                                Button {
-                                    Task { await loadMore() }
-                                } label: {
-                                    HStack {
-                                        Spacer()
-                                        if isLoadingMore {
-                                            ProgressView()
-                                        } else {
-                                            Text("加载更多")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                        Spacer()
+                        // 加载更多
+                        if hasMorePosts {
+                            Button {
+                                Task { await loadMore() }
+                            } label: {
+                                HStack {
+                                    Spacer()
+                                    if isLoadingMore {
+                                        ProgressView()
+                                    } else {
+                                        Text("加载更多")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
                                     }
-                                    .padding(.vertical, 8)
+                                    Spacer()
                                 }
-                                .disabled(isLoadingMore)
-                            } else {
-                                Text("— 没有更多帖子了 —")
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
-                                    .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 8)
+                                .padding(.vertical, 8)
                             }
+                            .disabled(isLoadingMore)
+                        } else {
+                            Text("— 没有更多帖子了 —")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
                         }
                     }
                     .padding()
@@ -310,19 +303,103 @@ struct PostCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Text(post.category)
+            // 正文区：点击进详情
+            NavigationLink {
+                PostDetailView(post: post, onLike: onLike)
+            } label: {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Text(post.category)
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(categoryColor.opacity(0.15), in: .capsule)
+                            .foregroundStyle(categoryColor)
+                        Text(post.author)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+
+                    Text(post.title)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.primary)
+
+                    // 工作帖：地区 + 薪资标签
+                    if post.category == "工作" {
+                        HStack(spacing: 8) {
+                            if let location = post.location, !location.isEmpty {
+                                Label(location, systemImage: "mappin.and.ellipse")
+                                    .font(.caption2)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(.orange.opacity(0.15), in: .capsule)
+                                    .foregroundStyle(.orange)
+                            }
+                            if let salary = post.salary, !salary.isEmpty {
+                                Label(salary, systemImage: "yensign.circle")
+                                    .font(.caption2)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(.orange.opacity(0.15), in: .capsule)
+                                    .foregroundStyle(.orange)
+                            }
+                        }
+                    }
+
+                    if let url = CircleAPI.absoluteURL(post.imageURLs.first) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 160)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                    .overlay(alignment: .bottomTrailing) {
+                                        if post.imageURLs.count > 1 {
+                                            Text("\(post.imageURLs.count) 张")
+                                                .font(.caption2)
+                                                .fontWeight(.semibold)
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 3)
+                                                .background(.black.opacity(0.6), in: .capsule)
+                                                .foregroundStyle(.white)
+                                                .padding(6)
+                                        }
+                                    }
+                            case .failure:
+                                Rectangle()
+                                    .fill(Color(.secondarySystemBackground))
+                                    .frame(height: 160)
+                                    .overlay(Image(systemName: "photo").foregroundStyle(.secondary))
+                            default:
+                                Rectangle()
+                                    .fill(Color(.secondarySystemBackground))
+                                    .frame(height: 160)
+                                    .overlay(ProgressView())
+                            }
+                        }
+                    }
+
+                    Text(post.content)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(3)
+                        .multilineTextAlignment(.leading)
+                }
+            }
+            .buttonStyle(.plain)
+
+            // 操作行：时间 / ⋯ 菜单 / 点赞（不在 NavigationLink 内，按钮可正常点击）
+            HStack {
+                Text(post.createdAt, format: .dateTime.month().day().hour().minute())
                     .font(.caption2)
-                    .fontWeight(.semibold)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(categoryColor.opacity(0.15), in: .capsule)
-                    .foregroundStyle(categoryColor)
-                Text(post.author)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.tertiary)
                 Spacer()
-                // 更多（举报 / 删除）
                 Menu {
                     if isMine {
                         Button(role: .destructive) {
@@ -341,84 +418,10 @@ struct PostCard: View {
                     Image(systemName: "ellipsis")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .padding(.horizontal, 4)
+                        .padding(.horizontal, 8)
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
-            }
-
-            Text(post.title)
-                .font(.subheadline)
-                .fontWeight(.semibold)
-
-            // 工作帖：地区 + 薪资标签
-            if post.category == "工作" {
-                HStack(spacing: 8) {
-                    if let location = post.location, !location.isEmpty {
-                        Label(location, systemImage: "mappin.and.ellipse")
-                            .font(.caption2)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(.orange.opacity(0.15), in: .capsule)
-                            .foregroundStyle(.orange)
-                    }
-                    if let salary = post.salary, !salary.isEmpty {
-                        Label(salary, systemImage: "yensign.circle")
-                            .font(.caption2)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(.orange.opacity(0.15), in: .capsule)
-                            .foregroundStyle(.orange)
-                    }
-                }
-            }
-
-            if let url = CircleAPI.absoluteURL(post.imageURLs.first) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 160)
-                            .clipShape(RoundedRectangle(cornerRadius: 10))
-                            .overlay(alignment: .bottomTrailing) {
-                                if post.imageURLs.count > 1 {
-                                    Text("\(post.imageURLs.count) 张")
-                                        .font(.caption2)
-                                        .fontWeight(.semibold)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 3)
-                                        .background(.black.opacity(0.6), in: .capsule)
-                                        .foregroundStyle(.white)
-                                        .padding(6)
-                                }
-                            }
-                    case .failure:
-                        Rectangle()
-                            .fill(Color(.secondarySystemBackground))
-                            .frame(height: 160)
-                            .overlay(Image(systemName: "photo").foregroundStyle(.secondary))
-                    default:
-                        Rectangle()
-                            .fill(Color(.secondarySystemBackground))
-                            .frame(height: 160)
-                            .overlay(ProgressView())
-                    }
-                }
-            }
-
-            Text(post.content)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(3)
-
-            HStack {
-                Text(post.createdAt, format: .dateTime.month().day().hour().minute())
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                Spacer()
                 Button(action: onLike) {
                     Label("\(post.likes)", systemImage: "heart")
                         .font(.caption)
