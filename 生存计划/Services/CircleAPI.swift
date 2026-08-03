@@ -18,6 +18,14 @@ enum CircleAPI {
         return id
     }
 
+    /// 统一网络会话：10s 请求超时，避免请求挂起导致界面无限加载
+    static let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 10
+        config.timeoutIntervalForResource = 30
+        return URLSession(configuration: config)
+    }()
+
     /// 相对路径（/uploads/x.png）→ 完整 URL
     static func absoluteURL(_ path: String?) -> URL? {
         guard let path, path.hasPrefix("/") else { return nil }
@@ -42,7 +50,7 @@ enum CircleAPI {
         if !query.isEmpty {
             url = url.appending(queryItems: query)
         }
-        let (data, response) = try await URLSession.shared.data(from: url)
+        let (data, response) = try await session.data(from: url)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw URLError(.badServerResponse)
         }
@@ -53,7 +61,7 @@ enum CircleAPI {
     static func deletePost(id: String, author: String) async throws {
         var request = URLRequest(url: baseURL.appendingPathComponent("posts/\(id)").appending(queryItems: [URLQueryItem(name: "author", value: author)]))
         request.httpMethod = "DELETE"
-        let (_, response) = try await URLSession.shared.data(for: request)
+        let (_, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw URLError(.badServerResponse)
         }
@@ -69,7 +77,7 @@ enum CircleAPI {
             author: author, likes: nil, createdAt: nil, imageURLs: imageURLs,
             location: location, salary: salary, deviceId: deviceID
         ))
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw URLError(.badServerResponse)
         }
@@ -94,7 +102,7 @@ enum CircleAPI {
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
         request.httpBody = body
 
-        let (data2, response) = try await URLSession.shared.data(for: request)
+        let (data2, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw URLError(.badServerResponse)
         }
@@ -106,7 +114,7 @@ enum CircleAPI {
     static func likePost(id: String) async throws -> Post {
         var request = URLRequest(url: baseURL.appendingPathComponent("posts/\(id)/like"))
         request.httpMethod = "POST"
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw URLError(.badServerResponse)
         }
@@ -123,7 +131,7 @@ enum CircleAPI {
             URLQueryItem(name: "offset", value: String(offset)),
             URLQueryItem(name: "limit", value: String(limit)),
         ])
-        let (data, response) = try await URLSession.shared.data(from: url)
+        let (data, response) = try await session.data(from: url)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw URLError(.badServerResponse)
         }
@@ -138,7 +146,7 @@ enum CircleAPI {
         request.httpBody = try JSONEncoder().encode(CommentDTO(
             id: nil, postId: postId, content: content, author: author, createdAt: nil, deviceId: deviceID
         ))
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw URLError(.badServerResponse)
         }
@@ -153,7 +161,7 @@ enum CircleAPI {
         request.httpBody = try JSONEncoder().encode(ReportDTO(
             targetType: targetType, targetId: targetId, reason: reason, reportedBy: reportedBy, deviceId: deviceID
         ))
-        let (_, response) = try await URLSession.shared.data(for: request)
+        let (_, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw URLError(.badServerResponse)
         }
