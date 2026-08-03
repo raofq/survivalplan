@@ -17,6 +17,7 @@ struct CircleView: View {
     @State private var showNewPost = false
     @State private var showCheckIn = false
     @State private var showOnlyMine = false
+    @State private var showFavoritesOnly = false
     @State private var author = UserDefaults.standard.string(forKey: "circle_author") ?? "匿名"
 
     let categories = ["全部", "运动", "学习", "搞钱", "教育", "树洞", "工作"]
@@ -156,6 +157,12 @@ struct CircleView: View {
                     Menu {
                         Button(showOnlyMine ? "查看全部帖子" : "只看我的帖子") {
                             showOnlyMine.toggle()
+                            if showOnlyMine { showFavoritesOnly = false }
+                            Task { await loadPosts() }
+                        }
+                        Button(showFavoritesOnly ? "取消只看收藏" : "只看收藏") {
+                            showFavoritesOnly.toggle()
+                            if showFavoritesOnly { showOnlyMine = false }
                             Task { await loadPosts() }
                         }
                         Divider()
@@ -165,8 +172,8 @@ struct CircleView: View {
                             UserDefaults.standard.set(author, forKey: "circle_author")
                         }
                     } label: {
-                        if showOnlyMine {
-                            Label(author, systemImage: "person.crop.circle.fill.badge.checkmark")
+                        if showOnlyMine || showFavoritesOnly {
+                            Label(author, systemImage: "line.3.horizontal.decrease.circle.fill")
                                 .font(.caption)
                         } else {
                             Text(author)
@@ -198,22 +205,33 @@ struct CircleView: View {
         isLoading = true
         defer { isLoading = false }
         do {
-            let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, author: showOnlyMine ? author : nil, offset: 0, limit: pageSize)
-            posts = fetched
-            hasMorePosts = fetched.count == pageSize
+            if showFavoritesOnly {
+                // 收藏是本地状态：从本地缓存过滤
+                posts = cachedPosts.filter { $0.isFavorited }
+                hasMorePosts = false
+            } else {
+                let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, author: showOnlyMine ? author : nil, offset: 0, limit: pageSize)
+                posts = fetched
+                hasMorePosts = fetched.count == pageSize
+            }
         } catch {
             errorMessage = "无法连接服务器（\(error.localizedDescription)）。请确认后端服务已启动。"
             showError = true
-            posts = cachedPosts.filter { (selectedCategory == "全部" || $0.category == selectedCategory) && (!showOnlyMine || $0.author == author) }
+            posts = cachedPosts.filter { (selectedCategory == "全部" || $0.category == selectedCategory) && (!showOnlyMine || $0.author == author) && (!showFavoritesOnly || $0.isFavorited) }
             hasMorePosts = false
         }
     }
 
     private func refreshPosts() async {
         do {
-            let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, author: showOnlyMine ? author : nil, offset: 0, limit: pageSize)
-            posts = fetched
-            hasMorePosts = fetched.count == pageSize
+            if showFavoritesOnly {
+                posts = cachedPosts.filter { $0.isFavorited }
+                hasMorePosts = false
+            } else {
+                let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, author: showOnlyMine ? author : nil, offset: 0, limit: pageSize)
+                posts = fetched
+                hasMorePosts = fetched.count == pageSize
+            }
         } catch {
             // 下拉刷新失败静默，保留现有列表
         }
@@ -273,6 +291,7 @@ struct PostCard: View {
     let isMine: Bool
     let onDelete: () -> Void
     let onLike: () -> Void
+    @Environment(\.modelContext) private var modelContext
     @State private var showReport = false
     @State private var showReported = false
     @State private var showDeleteConfirm = false
@@ -303,9 +322,39 @@ struct PostCard: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text(post.createdAt, format: .dateTime.month().day().hour().minute())
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                // 收藏（显式按钮）
+                Button {
+                    toggleFavorite()
+                } label: {
+                    Image(systemName: post.isFavorited ? "bookmark.fill" : "bookmark")
+                        .font(.caption)
+                        .foregroundStyle(post.isFavorited ? .orange : .secondary)
+                }
+                .buttonStyle(.bordered)
+                .tint(post.isFavorited ? .orange : .gray)
+                // 更多（举报 / 删除）
+                Menu {
+                    if isMine {
+                        Button(role: .destructive) {
+                            showDeleteConfirm = true
+                        } label: {
+                            Label("删除", systemImage: "trash")
+                        }
+                    } else {
+                        Button(role: .destructive) {
+                            showReport = true
+                        } label: {
+                            Label("举报", systemImage: "exclamationmark.bubble")
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 4)
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
             }
 
             Text(post.title)
@@ -376,6 +425,9 @@ struct PostCard: View {
                 .lineLimit(3)
 
             HStack {
+                Text(post.createdAt, format: .dateTime.month().day().hour().minute())
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
                 Spacer()
                 Button(action: onLike) {
                     Label("\(post.likes)", systemImage: "heart")
@@ -429,6 +481,11 @@ struct PostCard: View {
         } message: {
             Text("感谢反馈，我们会尽快处理")
         }
+    }
+
+    private func toggleFavorite() {
+        post.isFavorited.toggle()
+        try? modelContext.save()
     }
 
     private func submitReport(_ reason: String) {
