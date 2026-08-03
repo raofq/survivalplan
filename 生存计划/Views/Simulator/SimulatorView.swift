@@ -141,89 +141,49 @@ struct SimulatorView: View {
                         }
 
                         HStack(spacing: 8) {
-                            Button {
+                            scenarioButton(
+                                emoji: "🚗", title: "卖车",
+                                isOn: carSaleOn,
+                                statusText: carSaleOn ? "¥\(Int(carSaleAmount))" : "未启用"
+                            ) {
                                 if carSaleOn && carSaleAmount > 0 {
                                     carSaleOn = false
                                 } else {
                                     activeScenario = .sellCar
                                 }
-                            } label: {
-                                VStack(spacing: 2) {
-                                    HStack(spacing: 4) {
-                                        Text("🚗 卖车")
-                                        if carSaleOn { Image(systemName: "checkmark.circle.fill").font(.caption2) }
-                                    }
-                                    if carSaleOn {
-                                        Text("¥\(Int(carSaleAmount))")
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
                             }
-                            .buttonStyle(.bordered)
-                            .tint(carSaleOn ? .orange : .gray)
 
-                            Button {
+                            scenarioButton(
+                                emoji: "✂️", title: "停购物",
+                                isOn: stopShoppingOn,
+                                statusText: stopShoppingOn ? "已停" : "未启用"
+                            ) {
                                 stopShoppingOn.toggle()
                                 calculate()
                                 withAnimation { proxy.scrollTo("simResult", anchor: .top) }
-                            } label: {
-                                VStack(spacing: 2) {
-                                    HStack(spacing: 4) {
-                                        Text("✂️ 停购物")
-                                        if stopShoppingOn { Image(systemName: "checkmark.circle.fill").font(.caption2) }
-                                    }
-                                    if stopShoppingOn {
-                                        Text("已停")
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
                             }
-                            .buttonStyle(.bordered)
-                            .tint(stopShoppingOn ? .orange : .gray)
 
-                            Button {
+                            scenarioButton(
+                                emoji: "🎒", title: "停兴趣班",
+                                isOn: stopEducationOn,
+                                statusText: stopEducationOn ? "已停" : "未启用"
+                            ) {
                                 stopEducationOn.toggle()
                                 calculate()
                                 withAnimation { proxy.scrollTo("simResult", anchor: .top) }
-                            } label: {
-                                VStack(spacing: 2) {
-                                    HStack(spacing: 4) {
-                                        Text("🎒 停兴趣班")
-                                        if stopEducationOn { Image(systemName: "checkmark.circle.fill").font(.caption2) }
-                                    }
-                                    if stopEducationOn {
-                                        Text("已停")
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
                             }
-                            .buttonStyle(.bordered)
-                            .tint(stopEducationOn ? .orange : .gray)
 
-                            Button {
+                            scenarioButton(
+                                emoji: "💰", title: "借款",
+                                isOn: borrowOn,
+                                statusText: borrowOn ? "¥\(Int(borrowAmount))" : "未启用"
+                            ) {
                                 if borrowOn && borrowAmount > 0 {
                                     borrowOn = false
                                 } else {
                                     activeScenario = .borrow
                                 }
-                            } label: {
-                                VStack(spacing: 2) {
-                                    HStack(spacing: 4) {
-                                        Text("💰 借款")
-                                        if borrowOn { Image(systemName: "checkmark.circle.fill").font(.caption2) }
-                                    }
-                                    if borrowOn {
-                                        Text("¥\(Int(borrowAmount))")
-                                            .font(.caption2)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
                             }
-                            .buttonStyle(.bordered)
-                            .tint(borrowOn ? .orange : .gray)
                         }
                         .font(.caption)
 
@@ -442,6 +402,26 @@ struct SimulatorView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             withAnimation { proxy.scrollTo("simResult", anchor: .top) }
         }
+    }
+
+    /// 场景按钮：统一结构（图标+名称+勾选占位+状态行），选中与否只差底色和勾选
+    private func scenarioButton(emoji: String, title: String, isOn: Bool, statusText: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 2) {
+                HStack(spacing: 4) {
+                    Text("\(emoji) \(title)")
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.caption2)
+                        .opacity(isOn ? 1 : 0)   // 占位保持宽度，避免跳动
+                }
+                Text(statusText)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .tint(isOn ? .orange : .gray)
     }
 
     private func cutField(_ label: String, value: Binding<Double>) -> some View {
