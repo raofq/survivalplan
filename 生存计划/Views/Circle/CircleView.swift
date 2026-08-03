@@ -225,6 +225,7 @@ struct CircleView: View {
                 let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, deviceId: showOnlyMine ? CircleAPI.deviceID : nil, offset: 0, limit: pageSize)
                 posts = fetched
                 hasMorePosts = fetched.count == pageSize
+                cachePostsLocally(fetched)
             }
         } catch {
             errorMessage = "无法连接服务器（\(error.localizedDescription)）。请确认后端服务已启动。"
@@ -243,6 +244,7 @@ struct CircleView: View {
                 let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, deviceId: showOnlyMine ? CircleAPI.deviceID : nil, offset: 0, limit: pageSize)
                 posts = fetched
                 hasMorePosts = fetched.count == pageSize
+                cachePostsLocally(fetched)
             }
         } catch {
             // 下拉刷新失败静默，保留现有列表
@@ -257,9 +259,32 @@ struct CircleView: View {
             let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, deviceId: showOnlyMine ? CircleAPI.deviceID : nil, offset: posts.count, limit: pageSize)
             posts.append(contentsOf: fetched)
             hasMorePosts = fetched.count == pageSize
+            cachePostsLocally(fetched)
         } catch {
             // 加载更多失败静默
         }
+    }
+
+    /// 把云端拉到的帖子写入本地 SwiftData 缓存（按 id 去重，保留本地标记如点赞/收藏）
+    private func cachePostsLocally(_ fetched: [Post]) {
+        for post in fetched {
+            if let existing = cachedPosts.first(where: { $0.id == post.id }) {
+                existing.category = post.category
+                existing.title = post.title
+                existing.content = post.content
+                existing.author = post.author
+                existing.likes = post.likes
+                existing.imageURL = post.imageURL
+                existing.imageURLs = post.imageURLs
+                existing.location = post.location
+                existing.salary = post.salary
+                existing.createdAt = post.createdAt
+                // isLikedByMe / deviceId 保留本地值（云端不下发）
+            } else {
+                modelContext.insert(post)
+            }
+        }
+        try? modelContext.save()
     }
 
     private func deletePost(_ post: Post) async {
@@ -721,9 +746,12 @@ struct PostDetailView: View {
     @State private var comments: [CircleComment] = []
     @State private var commentText = ""
     @State private var isLoadingComments = false
+    @State private var isLoadingMoreComments = false
+    @State private var hasMoreComments = true
     @State private var showCommentError = false
     @State private var commentError = ""
     @State private var pageIndex = 0
+    @State private var commentsInitialized = false
 
     private var author: String {
         UserDefaults.standard.string(forKey: "circle_author") ?? "匿名"
@@ -797,32 +825,42 @@ struct PostDetailView: View {
                     .font(.body)
                     .lineSpacing(6)
 
-                // 详情图片（多图横向滑动 + 页码）
+                // 详情图片（多图横向滑动 + 页码；懒加载：只渲染当前页±1，避免一次请求全部）
                 if !post.imageURLs.isEmpty {
                     let urls = post.imageURLs.compactMap { CircleAPI.absoluteURL($0) }
                     if !urls.isEmpty {
-                        TabView {
-                            ForEach(Array(urls.enumerated()), id: \.offset) { _, url in
-                                AsyncImage(url: url) { phase in
-                                    switch phase {
-                                    case .success(let image):
-                                        image
-                                            .resizable()
-                                            .scaledToFit()
-                                            .frame(maxWidth: .infinity)
-                                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                                    case .failure:
+                        TabView(selection: $pageIndex) {
+                            ForEach(Array(urls.enumerated()), id: \.offset) { index, url in
+                                Group {
+                                    if abs(index - pageIndex) <= 1 {
+                                        AsyncImage(url: url) { phase in
+                                            switch phase {
+                                            case .success(let image):
+                                                image
+                                                    .resizable()
+                                                    .scaledToFit()
+                                                    .frame(maxWidth: .infinity)
+                                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                            case .failure:
+                                                Rectangle()
+                                                    .fill(Color(.secondarySystemBackground))
+                                                    .frame(height: 200)
+                                                    .overlay(Image(systemName: "photo").foregroundStyle(.secondary))
+                                            default:
+                                                Rectangle()
+                                                    .fill(Color(.secondarySystemBackground))
+                                                    .frame(height: 200)
+                                                    .overlay(ProgressView())
+                                            }
+                                        }
+                                    } else {
                                         Rectangle()
                                             .fill(Color(.secondarySystemBackground))
                                             .frame(height: 200)
-                                            .overlay(Image(systemName: "photo").foregroundStyle(.secondary))
-                                    default:
-                                        Rectangle()
-                                            .fill(Color(.secondarySystemBackground))
-                                            .frame(height: 200)
-                                            .overlay(ProgressView())
+                                            .opacity(0.3)
                                     }
                                 }
+                                .tag(index)
                             }
                         }
                         .tabViewStyle(.page)
@@ -886,6 +924,27 @@ struct PostDetailView: View {
                         }
                         Divider()
                     }
+
+                    // 加载更多评论
+                    if hasMoreComments {
+                        Button {
+                            Task { await loadMoreComments() }
+                        } label: {
+                            HStack {
+                                Spacer()
+                                if isLoadingMoreComments {
+                                    ProgressView()
+                                } else {
+                                    Text("加载更多评论")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                            }
+                            .padding(.vertical, 8)
+                        }
+                        .disabled(isLoadingMoreComments)
+                    }
                 }
 
                 // 回复输入
@@ -948,14 +1007,47 @@ struct PostDetailView: View {
         }
     }
 
+    /// 评论加载：缓存优先 → 静默刷新第一页；无缓存 → loading 拉第一页
     private func loadComments() async {
+        let pageSize = 20
+        if let cached = CircleAPI.commentCache[post.id], !cached.isEmpty {
+            comments = cached
+            commentsInitialized = true
+            hasMoreComments = cached.count == pageSize
+            // 静默刷新第一页（合并新评论）
+            if let fresh = try? await CircleAPI.fetchComments(postId: post.id, offset: 0, limit: pageSize) {
+                comments = fresh
+                CircleAPI.commentCache[post.id] = fresh
+                hasMoreComments = fresh.count == pageSize
+            }
+            return
+        }
         isLoadingComments = true
         defer { isLoadingComments = false }
         do {
-            comments = try await CircleAPI.fetchComments(postId: post.id)
+            let fresh = try await CircleAPI.fetchComments(postId: post.id, offset: 0, limit: pageSize)
+            comments = fresh
+            CircleAPI.commentCache[post.id] = fresh
+            hasMoreComments = fresh.count == pageSize
         } catch {
             commentError = "无法加载评论：\(error.localizedDescription)"
             showCommentError = true
+        }
+        commentsInitialized = true
+    }
+
+    /// 加载更多评论（分页追加）
+    private func loadMoreComments() async {
+        guard !isLoadingMoreComments, hasMoreComments else { return }
+        isLoadingMoreComments = true
+        defer { isLoadingMoreComments = false }
+        do {
+            let fresh = try await CircleAPI.fetchComments(postId: post.id, offset: comments.count, limit: 20)
+            comments.append(contentsOf: fresh)
+            CircleAPI.commentCache[post.id] = comments
+            hasMoreComments = fresh.count == 20
+        } catch {
+            // 加载更多失败静默
         }
     }
 
@@ -977,6 +1069,7 @@ struct PostDetailView: View {
             do {
                 let comment = try await CircleAPI.createComment(postId: post.id, content: text, author: author)
                 comments.append(comment)
+                CircleAPI.commentCache[post.id] = comments   // 同步更新缓存
                 commentText = ""
             } catch {
                 commentError = "评论失败：\(error.localizedDescription)"

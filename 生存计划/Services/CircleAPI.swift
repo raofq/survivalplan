@@ -113,9 +113,16 @@ enum CircleAPI {
         return try JSONDecoder().decode(PostDTO.self, from: data).toPost()
     }
 
-    // 拉取帖子评论
-    static func fetchComments(postId: String) async throws -> [CircleComment] {
-        let url = baseURL.appendingPathComponent("posts/\(postId)/comments")
+    /// 评论内存缓存（postID → 已加载的评论），避免反复进出详情页重复请求
+    static var commentCache: [String: [CircleComment]] = [:]
+
+    // 拉取帖子评论（分页）
+    static func fetchComments(postId: String, offset: Int = 0, limit: Int = 20) async throws -> [CircleComment] {
+        var url = baseURL.appendingPathComponent("posts/\(postId)/comments")
+        url = url.appending(queryItems: [
+            URLQueryItem(name: "offset", value: String(offset)),
+            URLQueryItem(name: "limit", value: String(limit)),
+        ])
         let (data, response) = try await URLSession.shared.data(from: url)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw URLError(.badServerResponse)
