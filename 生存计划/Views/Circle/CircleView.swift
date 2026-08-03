@@ -155,7 +155,7 @@ struct CircleView: View {
                             if showOnlyMine { showLikedOnly = false }
                             Task { await loadPosts() }
                         }
-                        Button(showLikedOnly ? "取消只看点赞" : "只看点赞") {
+                        Button(showLikedOnly ? "取消只看我点赞的帖子" : "只看我点赞的帖子") {
                             showLikedOnly.toggle()
                             if showLikedOnly { showOnlyMine = false }
                             Task { await loadPosts() }
@@ -218,9 +218,10 @@ struct CircleView: View {
         defer { isLoading = false }
         do {
             if showLikedOnly {
-                // 点赞记录是本地状态：从本地缓存过滤
-                posts = cachedPosts.filter { $0.isLikedByMe }
-                hasMorePosts = false
+                // 我点赞的帖子：后端按设备过滤（likes 表）
+                let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, likedBy: CircleAPI.deviceID, offset: 0, limit: pageSize)
+                posts = fetched
+                hasMorePosts = fetched.count == pageSize
             } else {
                 let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, deviceId: showOnlyMine ? CircleAPI.deviceID : nil, offset: 0, limit: pageSize)
                 posts = fetched
@@ -237,8 +238,9 @@ struct CircleView: View {
     private func refreshPosts() async {
         do {
             if showLikedOnly {
-                posts = cachedPosts.filter { $0.isLikedByMe }
-                hasMorePosts = false
+                let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, likedBy: CircleAPI.deviceID, offset: 0, limit: pageSize)
+                posts = fetched
+                hasMorePosts = fetched.count == pageSize
             } else {
                 let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, deviceId: showOnlyMine ? CircleAPI.deviceID : nil, offset: 0, limit: pageSize)
                 posts = fetched
@@ -254,9 +256,15 @@ struct CircleView: View {
         isLoadingMore = true
         defer { isLoadingMore = false }
         do {
-            let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, deviceId: showOnlyMine ? CircleAPI.deviceID : nil, offset: posts.count, limit: pageSize)
-            posts.append(contentsOf: fetched)
-            hasMorePosts = fetched.count == pageSize
+            if showLikedOnly {
+                let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, likedBy: CircleAPI.deviceID, offset: posts.count, limit: pageSize)
+                posts.append(contentsOf: fetched)
+                hasMorePosts = fetched.count == pageSize
+            } else {
+                let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, deviceId: showOnlyMine ? CircleAPI.deviceID : nil, offset: posts.count, limit: pageSize)
+                posts.append(contentsOf: fetched)
+                hasMorePosts = fetched.count == pageSize
+            }
         } catch {
             // 加载更多失败静默
         }

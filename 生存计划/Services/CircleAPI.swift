@@ -32,8 +32,8 @@ enum CircleAPI {
         return URL(string: path, relativeTo: serverRoot)?.absoluteURL
     }
 
-    // 拉取帖子（可选按分类/作者/设备，分页）
-    static func fetchPosts(category: String? = nil, author: String? = nil, deviceId: String? = nil, offset: Int = 0, limit: Int = 20) async throws -> [Post] {
+    // 拉取帖子（可选按分类/作者/设备/点赞者，分页）
+    static func fetchPosts(category: String? = nil, author: String? = nil, deviceId: String? = nil, likedBy: String? = nil, offset: Int = 0, limit: Int = 20) async throws -> [Post] {
         var url = baseURL.appendingPathComponent("posts")
         var query: [URLQueryItem] = []
         if let category, category != "全部" {
@@ -44,6 +44,9 @@ enum CircleAPI {
         }
         if let deviceId {
             query.append(URLQueryItem(name: "device_id", value: deviceId))
+        }
+        if let likedBy {
+            query.append(URLQueryItem(name: "liked_by", value: likedBy))
         }
         query.append(URLQueryItem(name: "offset", value: String(offset)))
         query.append(URLQueryItem(name: "limit", value: String(limit)))
@@ -110,9 +113,9 @@ enum CircleAPI {
         return try JSONDecoder().decode(UploadResult.self, from: data2).url
     }
 
-    // 点赞
+    // 点赞（幂等：同一设备重复点赞不重复计数）
     static func likePost(id: String) async throws -> Post {
-        var request = URLRequest(url: baseURL.appendingPathComponent("posts/\(id)/like"))
+        var request = URLRequest(url: baseURL.appendingPathComponent("posts/\(id)/like").appending(queryItems: [URLQueryItem(name: "device_id", value: deviceID)]))
         request.httpMethod = "POST"
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
