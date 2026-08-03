@@ -689,23 +689,136 @@ struct BackupFileDocument: FileDocument {
     }
 }
 
-// MARK: - 运动打卡列表（占位）
+// MARK: - 运动打卡列表
 struct WorkoutListView: View {
+    @Query(sort: \WorkoutRecord.date, order: .reverse) private var records: [WorkoutRecord]
+    @Environment(\.modelContext) private var modelContext
+
     var body: some View {
         List {
-            Text("运动打卡功能开发中")
-                .foregroundStyle(.secondary)
+            Section {
+                HStack(spacing: 0) {
+                    StatItem(value: "\(records.count)", label: "总次数", color: .blue)
+                    StatItem(value: "\(records.reduce(0) { $0 + $1.duration })分", label: "总时长", color: .green)
+                    StatItem(value: "\(streakDays)", label: "连续天数", color: .orange)
+                }
+            }
+
+            Section {
+                if records.isEmpty {
+                    Text("还没有运动记录，去「圈子 → 运动」打个卡吧")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(records) { record in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(record.type)
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                if !record.note.isEmpty {
+                                    Text(record.note)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                            }
+                            Spacer()
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text("\(record.duration) 分钟")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(.green)
+                                Text(record.date, format: .dateTime.month().day().hour().minute())
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    .onDelete { indexSet in
+                        for index in indexSet {
+                            modelContext.delete(records[index])
+                        }
+                        try? modelContext.save()
+                    }
+                }
+            } header: {
+                Text("记录")
+            }
         }
         .navigationTitle("运动打卡")
     }
+
+    private var streakDays: Int {
+        let calendar = Calendar.current
+        var streak = 0
+        var day = Date()
+        while records.contains(where: { calendar.isDate($0.date, inSameDayAs: day) }) {
+            streak += 1
+            day = calendar.date(byAdding: .day, value: -1, to: day) ?? day
+        }
+        return streak
+    }
 }
 
-// MARK: - 学习记录列表（占位）
+// MARK: - 学习记录列表
 struct StudyListView: View {
+    @Query(sort: \StudyRecord.date, order: .reverse) private var records: [StudyRecord]
+    @Environment(\.modelContext) private var modelContext
+
     var body: some View {
         List {
-            Text("学习记录功能开发中")
-                .foregroundStyle(.secondary)
+            Section {
+                HStack(spacing: 0) {
+                    StatItem(value: "\(records.count)", label: "总次数", color: .blue)
+                    StatItem(value: "\(records.reduce(0) { $0 + $1.duration })分", label: "总时长", color: .green)
+                    StatItem(value: "\(Set(records.map { $0.skill }).count)", label: "技能数", color: .purple)
+                }
+            }
+
+            Section {
+                if records.isEmpty {
+                    Text("还没有学习记录，去「圈子 → 学习」充充电吧")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(records) { record in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(record.skill)
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                if !record.content.isEmpty {
+                                    Text(record.content)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
+                            }
+                            Spacer()
+                            VStack(alignment: .trailing, spacing: 2) {
+                                Text("\(record.duration) 分钟")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(.blue)
+                                Text(record.date, format: .dateTime.month().day().hour().minute())
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
+                    .onDelete { indexSet in
+                        for index in indexSet {
+                            modelContext.delete(records[index])
+                        }
+                        try? modelContext.save()
+                    }
+                }
+            } header: {
+                Text("记录")
+            }
         }
         .navigationTitle("学习记录")
     }
@@ -713,6 +826,13 @@ struct StudyListView: View {
 
 // MARK: - 关于
 struct AboutView: View {
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
+    }
+    private var appBuild: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
+    }
+
     var body: some View {
         Form {
             Section {
@@ -725,7 +845,7 @@ struct AboutView: View {
                 HStack {
                     Text("版本")
                     Spacer()
-                    Text("1.0.0")
+                    Text("\(appVersion) (\(appBuild))")
                         .foregroundStyle(.secondary)
                 }
                 HStack {
@@ -747,21 +867,27 @@ struct AboutView: View {
             }
 
             Section {
-                Label("数据仅存储在你的设备上，不上传任何服务器", systemImage: "lock.shield.fill")
+                Label("财务数据仅存储在你的设备上", systemImage: "lock.shield.fill")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Label("圈子内容会上传到社区服务器", systemImage: "arrow.up.doc.fill")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             } header: {
                 Label("隐私", systemImage: "hand.raised.fill")
             } footer: {
-                Text("所有财务数据通过 SwiftData 本地存储，App 不联网、不收集任何数据。")
+                Text("记账、预算、打卡数据通过 SwiftData 本地存储，不离开设备。圈子模块的帖子、评论、点赞会发送到社区服务器（用于多人互助），不包含你的姓名等真实身份信息。")
             }
 
             Section {
                 Link(destination: URL(string: "https://github.com/raofq/survivalplan")!) {
                     Label("GitHub 仓库", systemImage: "chevron.left.forwardslash.chevron.right")
                 }
+                Link(destination: URL(string: "mailto:survivalplan.support@example.com")!) {
+                    Label("反馈与建议", systemImage: "envelope.fill")
+                }
             } header: {
-                Label("开源", systemImage: "globe")
+                Label("链接", systemImage: "globe")
             }
         }
         .navigationTitle("关于")
