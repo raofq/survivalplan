@@ -103,6 +103,35 @@ enum CircleAPI {
         }
         return try JSONDecoder().decode(CommentDTO.self, from: data).toComment()
     }
+
+    // 举报帖子或评论
+    static func reportTarget(targetType: String, targetId: String, reason: String, reportedBy: String) async throws {
+        var request = URLRequest(url: baseURL.appendingPathComponent("reports"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(ReportDTO(
+            targetType: targetType, targetId: targetId, reason: reason, reportedBy: reportedBy
+        ))
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw URLError(.badServerResponse)
+        }
+    }
+}
+
+// MARK: - 举报 DTO
+struct ReportDTO: Codable {
+    let targetType: String
+    let targetId: String
+    let reason: String
+    let reportedBy: String
+
+    enum CodingKeys: String, CodingKey {
+        case targetType = "target_type"
+        case targetId = "target_id"
+        case reason
+        case reportedBy = "reported_by"
+    }
 }
 
 // MARK: - 评论

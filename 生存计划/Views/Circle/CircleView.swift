@@ -188,6 +188,8 @@ struct CircleView: View {
 struct PostCard: View {
     let post: Post
     let onLike: () -> Void
+    @State private var showReport = false
+    @State private var showReported = false
 
     private var categoryColor: Color {
         switch post.category {
@@ -277,6 +279,40 @@ struct PostCard: View {
         }
         .padding(12)
         .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
+        .contextMenu {
+            Button(role: .destructive) {
+                showReport = true
+            } label: {
+                Label("举报", systemImage: "exclamationmark.bubble")
+            }
+        }
+        .confirmationDialog("举报这个帖子？", isPresented: $showReport, titleVisibility: .visible) {
+            ForEach(["广告/营销", "人身攻击", "色情低俗", "诈骗信息", "其他"], id: \.self) { reason in
+                Button(reason) {
+                    submitReport(reason)
+                }
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("我们会审核处理，请勿恶意举报")
+        }
+        .alert("已提交举报", isPresented: $showReported) {
+            Button("好") {}
+        } message: {
+            Text("感谢反馈，我们会尽快处理")
+        }
+    }
+
+    private func submitReport(_ reason: String) {
+        let author = UserDefaults.standard.string(forKey: "circle_author") ?? "匿名"
+        Task {
+            do {
+                try await CircleAPI.reportTarget(targetType: "post", targetId: post.id, reason: reason, reportedBy: author)
+                showReported = true
+            } catch {
+                // 失败静默
+            }
+        }
     }
 }
 
@@ -363,6 +399,12 @@ struct NewPostSheet: View {
                     if isUploading {
                         ProgressView("上传中…")
                     }
+                }
+
+                Section {
+                    Text("社区规范：不发广告、不人身攻击、不传播虚假信息。违反将被删除。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
             .navigationTitle("发布帖子")
@@ -597,6 +639,13 @@ struct PostDetailView: View {
                                 .font(.subheadline)
                         }
                         .padding(.vertical, 6)
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                reportComment(comment)
+                            } label: {
+                                Label("举报", systemImage: "exclamationmark.bubble")
+                            }
+                        }
                         Divider()
                     }
                 }
@@ -669,6 +718,17 @@ struct PostDetailView: View {
         } catch {
             commentError = "无法加载评论：\(error.localizedDescription)"
             showCommentError = true
+        }
+    }
+
+    private func reportComment(_ comment: CircleComment) {
+        let author = UserDefaults.standard.string(forKey: "circle_author") ?? "匿名"
+        Task {
+            do {
+                try await CircleAPI.reportTarget(targetType: "comment", targetId: comment.id, reason: "人身攻击", reportedBy: author)
+            } catch {
+                // 失败静默
+            }
         }
     }
 
