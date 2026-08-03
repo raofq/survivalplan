@@ -164,9 +164,9 @@ struct CircleView: View {
                 }
             }
             .sheet(isPresented: $showNewPost) {
-                NewPostSheet(author: author) { category, title, content, imageURLs in
+                NewPostSheet(author: author) { category, title, content, imageURLs, location, salary in
                     Task {
-                        await createPost(category: category, title: title, content: content, imageURLs: imageURLs)
+                        await createPost(category: category, title: title, content: content, imageURLs: imageURLs, location: location, salary: salary)
                     }
                 }
             }
@@ -219,9 +219,9 @@ struct CircleView: View {
         }
     }
 
-    private func createPost(category: String, title: String, content: String, imageURLs: [String]) async {
+    private func createPost(category: String, title: String, content: String, imageURLs: [String], location: String, salary: String) async {
         do {
-            let post = try await CircleAPI.createPost(category: category, title: title, content: content, author: author, imageURLs: imageURLs)
+            let post = try await CircleAPI.createPost(category: category, title: title, content: content, author: author, imageURLs: imageURLs, location: location.isEmpty ? nil : location, salary: salary.isEmpty ? nil : salary)
             modelContext.insert(post)
             try? modelContext.save()
             await loadPosts()
@@ -284,6 +284,28 @@ struct PostCard: View {
                 .font(.subheadline)
                 .fontWeight(.semibold)
 
+            // 工作帖：地区 + 薪资标签
+            if post.category == "工作" {
+                HStack(spacing: 8) {
+                    if let location = post.location, !location.isEmpty {
+                        Label(location, systemImage: "mappin.and.ellipse")
+                            .font(.caption2)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(.orange.opacity(0.15), in: .capsule)
+                            .foregroundStyle(.orange)
+                    }
+                    if let salary = post.salary, !salary.isEmpty {
+                        Label(salary, systemImage: "yensign.circle")
+                            .font(.caption2)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(.orange.opacity(0.15), in: .capsule)
+                            .foregroundStyle(.orange)
+                    }
+                }
+            }
+
             if let url = CircleAPI.absoluteURL(post.imageURLs.first) {
                 AsyncImage(url: url) { phase in
                     switch phase {
@@ -337,6 +359,10 @@ struct PostCard: View {
         }
         .padding(12)
         .background(Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(post.category == "工作" ? Color.orange.opacity(0.6) : .clear, lineWidth: 1.5)
+        )
         .contextMenu {
             Button(role: .destructive) {
                 showReport = true
@@ -383,7 +409,7 @@ struct PickedImage: Identifiable {
 // MARK: - 发帖
 struct NewPostSheet: View {
     let author: String
-    let onPost: (String, String, String, [String]) -> Void
+    let onPost: (String, String, String, [String], String, String) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var category = "树洞"
@@ -393,6 +419,8 @@ struct NewPostSheet: View {
     @State private var isUploading = false
     @State private var showPicker = false
     @State private var uploadError = false
+    @State private var location = ""
+    @State private var salary = ""
 
     let categories = ["运动", "学习", "搞钱", "教育", "树洞", "工作"]
     private let maxImages = 9
@@ -414,6 +442,24 @@ struct NewPostSheet: View {
                 Section("内容") {
                     TextEditor(text: $content)
                         .frame(height: 120)
+                }
+
+                // 工作分类：地区 + 薪资（选填）
+                if category == "工作" {
+                    Section("职位信息（选填）") {
+                        HStack {
+                            Text("地区")
+                                .foregroundStyle(.secondary)
+                            TextField("如：杭州", text: $location)
+                                .multilineTextAlignment(.trailing)
+                        }
+                        HStack {
+                            Text("薪资")
+                                .foregroundStyle(.secondary)
+                            TextField("如：6-8k/月", text: $salary)
+                                .multilineTextAlignment(.trailing)
+                        }
+                    }
                 }
 
                 Section("图片（选填，最多 \(maxImages) 张）") {
@@ -495,8 +541,10 @@ struct NewPostSheet: View {
     }
 
     private func submit() {
+        let trimmedLocation = location.trimmingCharacters(in: .whitespaces)
+        let trimmedSalary = salary.trimmingCharacters(in: .whitespaces)
         guard !selectedImages.isEmpty else {
-            onPost(category, title, content, [])
+            onPost(category, title, content, [], trimmedLocation, trimmedSalary)
             dismiss()
             return
         }
@@ -507,7 +555,7 @@ struct NewPostSheet: View {
                 for picked in selectedImages {
                     urls.append(try await CircleAPI.uploadImage(picked.image))
                 }
-                onPost(category, title, content, urls)
+                onPost(category, title, content, urls, trimmedLocation, trimmedSalary)
                 dismiss()
             } catch {
                 uploadError = true
@@ -609,6 +657,29 @@ struct PostDetailView: View {
                 Text(post.title)
                     .font(.title2)
                     .fontWeight(.bold)
+
+                // 工作帖：地区 + 薪资
+                if post.category == "工作" {
+                    HStack(spacing: 8) {
+                        if let location = post.location, !location.isEmpty {
+                            Label(location, systemImage: "mappin.and.ellipse")
+                                .font(.caption)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(.orange.opacity(0.15), in: .capsule)
+                                .foregroundStyle(.orange)
+                        }
+                        if let salary = post.salary, !salary.isEmpty {
+                            Label(salary, systemImage: "yensign.circle")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(.orange.opacity(0.15), in: .capsule)
+                                .foregroundStyle(.orange)
+                        }
+                    }
+                }
 
                 Divider()
 

@@ -33,13 +33,14 @@ enum CircleAPI {
     }
 
     // 发布帖子
-    static func createPost(category: String, title: String, content: String, author: String, imageURLs: [String] = []) async throws -> Post {
+    static func createPost(category: String, title: String, content: String, author: String, imageURLs: [String] = [], location: String? = nil, salary: String? = nil) async throws -> Post {
         var request = URLRequest(url: baseURL.appendingPathComponent("posts"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(PostDTO(
             id: nil, category: category, title: title, content: content,
-            author: author, likes: nil, createdAt: nil, imageURLs: imageURLs
+            author: author, likes: nil, createdAt: nil, imageURLs: imageURLs,
+            location: location, salary: salary
         ))
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
@@ -184,9 +185,11 @@ struct PostDTO: Codable {
     let likes: Int?
     let createdAt: String?
     let imageURLs: [String]?
+    let location: String?
+    let salary: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, category, title, content, author, likes
+        case id, category, title, content, author, likes, location, salary
         case createdAt = "created_at"
         case imageURLs = "image_urls"
     }
@@ -203,6 +206,8 @@ struct PostDTO: Codable {
             likes: likes ?? 0,
             imageURL: urls.first,
             imageURLs: urls,
+            location: location,
+            salary: salary,
             createdAt: date
         )
     }
