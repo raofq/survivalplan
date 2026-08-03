@@ -410,7 +410,10 @@ struct SimulatorView: View {
                 }
             }
             .alert("Pro 专属功能", isPresented: $showProLock) {
-                Button("好") {}
+                Button("去解锁") {
+                    StoreManager.shared.showPaywall = true
+                }
+                Button("好", role: .cancel) {}
             } message: {
                 Text(ProLock.message(for: "场景模拟"))
             }

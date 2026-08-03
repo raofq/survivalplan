@@ -3,9 +3,16 @@ import SwiftData
 
 @main
 struct SurvivalPlanApp: App {
+    @StateObject private var store = StoreManager.shared
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(store)
+                .sheet(isPresented: $store.showPaywall) {
+                    PaywallView()
+                        .environmentObject(store)
+                }
         }
         .modelContainer(for: [UserProfile.self, ExpenseRecord.self, WorkoutRecord.self, StudyRecord.self, Post.self])
     }

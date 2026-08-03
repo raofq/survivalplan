@@ -27,6 +27,8 @@
 		F1A2B3C4D5E6F7A8B9C0D1E2 /* Post.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2B3C4D5E6F7A8B9C0D1E2F3 /* Post.swift */; };
 		B5C6D7E8F9A0B1C2D3E4F5A6 /* CircleAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6D7E8F9A0B1C2D3E4F5A6B7 /* CircleAPI.swift */; };
 		B6C7D8E9F0A1B2C3D4E5F6A7 /* FeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7D8E9F0A1B2C3D4E5F6A7B8 /* FeatureFlags.swift */; };
+		C8D9E0F1A2B3C4D5E6F7A8 /* StoreManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8E9F0A1B2C3D4E5F6A7B8C9 /* StoreManager.swift */; };
+		E9F0A1B2C3D4E5F6A7B8C9D0 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A1B2C3D4E5F6A7B8C9D0E1 /* PaywallView.swift */; };
 		D7E8F9A0B1C2D3E4F5A6B7C8 /* CircleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8F9A0B1C2D3E4F5A6B7C8D9 /* CircleView.swift */; };
 /* End PBXBuildFile section */
 
@@ -71,6 +73,8 @@
 		A2B3C4D5E6F7A8B9C0D1E2F3 /* Post.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Post.swift; sourceTree = "<group>"; };
 		C6D7E8F9A0B1C2D3E4F5A6B7 /* CircleAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleAPI.swift; sourceTree = "<group>"; };
 		C7D8E9F0A1B2C3D4E5F6A7B8 /* FeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureFlags.swift; sourceTree = "<group>"; };
+		D8E9F0A1B2C3D4E5F6A7B8C9 /* StoreManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreManager.swift; sourceTree = "<group>"; };
+		F0A1B2C3D4E5F6A7B8C9D0E1 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
 		E8F9A0B1C2D3E4F5A6B7C8D9 /* CircleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -163,6 +167,7 @@
 				B7C8D9E0F1A2B3C4D5E6F7A8 /* NotificationManager.swift */,
 				C6D7E8F9A0B1C2D3E4F5A6B7 /* CircleAPI.swift */,
 				C7D8E9F0A1B2C3D4E5F6A7B8 /* FeatureFlags.swift */,
+				D8E9F0A1B2C3D4E5F6A7B8C9 /* StoreManager.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -220,6 +225,7 @@
 			isa = PBXGroup;
 			children = (
 				B9C3D5E7F1A2B4C6D8E0F2A4 /* SettingsView.swift */,
+				F0A1B2C3D4E5F6A7B8C9D0E1 /* PaywallView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -461,6 +467,8 @@
 				F1A2B3C4D5E6F7A8B9C0D1E2 /* Post.swift in Sources */,
 				B5C6D7E8F9A0B1C2D3E4F5A6 /* CircleAPI.swift in Sources */,
 				B6C7D8E9F0A1B2C3D4E5F6A7 /* FeatureFlags.swift in Sources */,
+				C8D9E0F1A2B3C4D5E6F7A8 /* StoreManager.swift in Sources */,
+				E9F0A1B2C3D4E5F6A7B8C9D0 /* PaywallView.swift in Sources */,
 				D7E8F9A0B1C2D3E4F5A6B7C8 /* CircleView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

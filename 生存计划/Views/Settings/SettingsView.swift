@@ -68,6 +68,24 @@ struct SettingsView: View {
 
                 // 分区导航
                 Section {
+                    // Pro 升级入口
+                    Button {
+                        StoreManager.shared.showPaywall = true
+                    } label: {
+                        HStack {
+                            Label("升级 Pro", systemImage: ProFeatures.isPro ? "crown.fill" : "crown")
+                                .foregroundStyle(.orange)
+                            Spacer()
+                            if ProFeatures.isPro {
+                                Text("已解锁")
+                                    .font(.caption)
+                                    .foregroundStyle(.green)
+                            } else {
+                                ProLock.badge()
+                            }
+                        }
+                    }
+
                     NavigationLink {
                         ProfileEditorView(profile: profile)
                     } label: {
