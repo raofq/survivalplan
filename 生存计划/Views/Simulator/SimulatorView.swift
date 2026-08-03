@@ -164,7 +164,7 @@ struct SimulatorView: View {
                             }
 
                             scenarioButton(
-                                emoji: "🎒", title: "停兴趣班",
+                                emoji: "🎒", title: "停补课",
                                 isOn: stopEducationOn,
                                 statusText: stopEducationOn ? "已停" : "未启用"
                             ) {
@@ -366,7 +366,7 @@ struct SimulatorView: View {
     private var enabledScenarios: [String] {
         var list: [String] = []
         if stopShoppingOn { list.append("停购物") }
-        if stopEducationOn { list.append("停兴趣班") }
+        if stopEducationOn { list.append("停补课") }
         if carSaleOn && carSaleAmount > 0 { list.append("卖车 ¥\(Int(carSaleAmount))") }
         if borrowOn && borrowAmount > 0 { list.append("借款 ¥\(Int(borrowAmount))") }
         return list
