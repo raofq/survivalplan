@@ -7,14 +7,25 @@ enum CircleAPI {
     /// 服务器根（uploads 静态目录挂在根下）
     static var serverRoot: URL { baseURL.deletingLastPathComponent() }
 
+    /// 设备身份：首次启动生成 UUID，持久存储；发帖/评论/举报/我的帖子用它区分用户
+    static var deviceID: String {
+        let key = "circle_device_id"
+        if let id = UserDefaults.standard.string(forKey: key) {
+            return id
+        }
+        let id = UUID().uuidString
+        UserDefaults.standard.set(id, forKey: key)
+        return id
+    }
+
     /// 相对路径（/uploads/x.png）→ 完整 URL
     static func absoluteURL(_ path: String?) -> URL? {
         guard let path, path.hasPrefix("/") else { return nil }
         return URL(string: path, relativeTo: serverRoot)?.absoluteURL
     }
 
-    // 拉取帖子（可选按分类/作者，分页）
-    static func fetchPosts(category: String? = nil, author: String? = nil, offset: Int = 0, limit: Int = 20) async throws -> [Post] {
+    // 拉取帖子（可选按分类/作者/设备，分页）
+    static func fetchPosts(category: String? = nil, author: String? = nil, deviceId: String? = nil, offset: Int = 0, limit: Int = 20) async throws -> [Post] {
         var url = baseURL.appendingPathComponent("posts")
         var query: [URLQueryItem] = []
         if let category, category != "全部" {
@@ -22,6 +33,9 @@ enum CircleAPI {
         }
         if let author {
             query.append(URLQueryItem(name: "author", value: author))
+        }
+        if let deviceId {
+            query.append(URLQueryItem(name: "device_id", value: deviceId))
         }
         query.append(URLQueryItem(name: "offset", value: String(offset)))
         query.append(URLQueryItem(name: "limit", value: String(limit)))
@@ -53,7 +67,7 @@ enum CircleAPI {
         request.httpBody = try JSONEncoder().encode(PostDTO(
             id: nil, category: category, title: title, content: content,
             author: author, likes: nil, createdAt: nil, imageURLs: imageURLs,
-            location: location, salary: salary
+            location: location, salary: salary, deviceId: deviceID
         ))
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
@@ -115,7 +129,7 @@ enum CircleAPI {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(CommentDTO(
-            id: nil, postId: postId, content: content, author: author, createdAt: nil
+            id: nil, postId: postId, content: content, author: author, createdAt: nil, deviceId: deviceID
         ))
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
@@ -130,7 +144,7 @@ enum CircleAPI {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(ReportDTO(
-            targetType: targetType, targetId: targetId, reason: reason, reportedBy: reportedBy
+            targetType: targetType, targetId: targetId, reason: reason, reportedBy: reportedBy, deviceId: deviceID
         ))
         let (_, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
@@ -145,12 +159,14 @@ struct ReportDTO: Codable {
     let targetId: String
     let reason: String
     let reportedBy: String
+    let deviceId: String?
 
     enum CodingKeys: String, CodingKey {
         case targetType = "target_type"
         case targetId = "target_id"
         case reason
         case reportedBy = "reported_by"
+        case deviceId = "device_id"
     }
 }
 
@@ -169,11 +185,13 @@ struct CommentDTO: Codable {
     let content: String
     let author: String
     let createdAt: String?
+    let deviceId: String?
 
     enum CodingKeys: String, CodingKey {
         case id, content, author
         case postId = "post_id"
         case createdAt = "created_at"
+        case deviceId = "device_id"
     }
 
     func toComment() -> CircleComment {
@@ -200,11 +218,13 @@ struct PostDTO: Codable {
     let imageURLs: [String]?
     let location: String?
     let salary: String?
+    let deviceId: String?
 
     enum CodingKeys: String, CodingKey {
         case id, category, title, content, author, likes, location, salary
         case createdAt = "created_at"
         case imageURLs = "image_urls"
+        case deviceId = "device_id"
     }
 
     func toPost() -> Post {

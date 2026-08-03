@@ -203,14 +203,14 @@ struct CircleView: View {
                 posts = cachedPosts.filter { $0.isLikedByMe }
                 hasMorePosts = false
             } else {
-                let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, author: showOnlyMine ? author : nil, offset: 0, limit: pageSize)
+                let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, deviceId: showOnlyMine ? CircleAPI.deviceID : nil, offset: 0, limit: pageSize)
                 posts = fetched
                 hasMorePosts = fetched.count == pageSize
             }
         } catch {
             errorMessage = "无法连接服务器（\(error.localizedDescription)）。请确认后端服务已启动。"
             showError = true
-            posts = cachedPosts.filter { (selectedCategory == "全部" || $0.category == selectedCategory) && (!showOnlyMine || $0.author == author) && (!showLikedOnly || $0.isLikedByMe) }
+            posts = cachedPosts.filter { (selectedCategory == "全部" || $0.category == selectedCategory) && (!showLikedOnly || $0.isLikedByMe) }
             hasMorePosts = false
         }
     }
@@ -221,7 +221,7 @@ struct CircleView: View {
                 posts = cachedPosts.filter { $0.isLikedByMe }
                 hasMorePosts = false
             } else {
-                let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, author: showOnlyMine ? author : nil, offset: 0, limit: pageSize)
+                let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, deviceId: showOnlyMine ? CircleAPI.deviceID : nil, offset: 0, limit: pageSize)
                 posts = fetched
                 hasMorePosts = fetched.count == pageSize
             }
@@ -235,7 +235,7 @@ struct CircleView: View {
         isLoadingMore = true
         defer { isLoadingMore = false }
         do {
-            let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, author: showOnlyMine ? author : nil, offset: posts.count, limit: pageSize)
+            let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, deviceId: showOnlyMine ? CircleAPI.deviceID : nil, offset: posts.count, limit: pageSize)
             posts.append(contentsOf: fetched)
             hasMorePosts = fetched.count == pageSize
         } catch {
@@ -258,6 +258,7 @@ struct CircleView: View {
     private func createPost(category: String, title: String, content: String, imageURLs: [String], location: String, salary: String) async {
         do {
             let post = try await CircleAPI.createPost(category: category, title: title, content: content, author: author, imageURLs: imageURLs, location: location.isEmpty ? nil : location, salary: salary.isEmpty ? nil : salary)
+            post.deviceId = CircleAPI.deviceID   // 本地缓存标记「我的帖子」
             modelContext.insert(post)
             try? modelContext.save()
             await loadPosts()
