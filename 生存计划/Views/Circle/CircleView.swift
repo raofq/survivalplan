@@ -18,6 +18,8 @@ struct CircleView: View {
     @State private var showCheckIn = false
     @State private var showOnlyMine = false
     @State private var showLikedOnly = false
+    @State private var showNicknameEditor = false
+    @State private var nicknameInput = ""
     @State private var author = UserDefaults.standard.string(forKey: "circle_author") ?? "匿名"
 
     let categories = ["全部", "运动", "学习", "搞钱", "教育", "树洞", "工作"]
@@ -159,11 +161,11 @@ struct CircleView: View {
                             Task { await loadPosts() }
                         }
                         Divider()
-                        Button("匿名") { author = "匿名"; UserDefaults.standard.set("匿名", forKey: "circle_author") }
-                        Button("匿名用户\(Int.random(in: 100...999))") {
-                            author = "匿名用户\(Int.random(in: 100...999))"
-                            UserDefaults.standard.set(author, forKey: "circle_author")
+                        Button("自定义昵称…") {
+                            nicknameInput = author == "匿名" ? "" : author
+                            showNicknameEditor = true
                         }
+                        Button("匿名") { setAuthor("匿名") }
                     } label: {
                         if showOnlyMine || showLikedOnly {
                             Label(author, systemImage: "line.3.horizontal.decrease.circle.fill")
@@ -188,10 +190,27 @@ struct CircleView: View {
             } message: {
                 Text(errorMessage)
             }
+            .alert("设置昵称", isPresented: $showNicknameEditor) {
+                TextField("给自己起个名字（最多 12 字）", text: $nicknameInput)
+                Button("确定") {
+                    let trimmed = nicknameInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty {
+                        setAuthor(String(trimmed.prefix(12)))
+                    }
+                }
+                Button("取消", role: .cancel) {}
+            } message: {
+                Text("昵称只是显示名，不会影响你的身份")
+            }
         }
         .task {
             await loadPosts()
         }
+    }
+
+    private func setAuthor(_ name: String) {
+        author = name
+        UserDefaults.standard.set(name, forKey: "circle_author")
     }
 
     private func loadPosts() async {
