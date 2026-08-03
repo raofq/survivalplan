@@ -95,9 +95,16 @@ struct CircleView: View {
                             .padding(.vertical, 24)
                         } else {
                             ForEach(posts) { post in
-                                PostCard(post: post) {
-                                    Task { await like(post) }
+                                NavigationLink {
+                                    PostDetailView(post: post) {
+                                        Task { await like(post) }
+                                    }
+                                } label: {
+                                    PostCard(post: post) {
+                                        Task { await like(post) }
+                                    }
                                 }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
@@ -281,5 +288,78 @@ struct NewPostSheet: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - 帖子详情
+struct PostDetailView: View {
+    let post: Post
+    let onLike: () -> Void
+
+    private var categoryColor: Color {
+        switch post.category {
+        case "运动": return .green
+        case "学习": return .blue
+        case "搞钱": return .orange
+        case "教育": return .purple
+        case "树洞": return .pink
+        case "工作": return .teal
+        default: return .gray
+        }
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                // 分类 + 作者 + 时间
+                HStack(spacing: 8) {
+                    Text(post.category)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(categoryColor.opacity(0.15), in: .capsule)
+                        .foregroundStyle(categoryColor)
+                    Text(post.author)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(post.createdAt, format: .dateTime.year().month().day().hour().minute())
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+
+                // 标题
+                Text(post.title)
+                    .font(.title2)
+                    .fontWeight(.bold)
+
+                Divider()
+
+                // 完整内容
+                Text(post.content)
+                    .font(.body)
+                    .lineSpacing(6)
+
+                Spacer(minLength: 24)
+
+                // 点赞
+                HStack {
+                    Spacer()
+                    Button(action: onLike) {
+                        Label("\(post.likes) 人觉得暖心", systemImage: "heart.fill")
+                            .font(.subheadline)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.pink)
+                    Spacer()
+                }
+            }
+            .padding()
+        }
+        .navigationTitle("帖子详情")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
