@@ -17,6 +17,13 @@ struct SimulatorView: View {
     @State private var simulatedReport: SurvivalReport?
     @State private var targetMonths: Int = 12
     @State private var activeScenario: Scenario?
+    @State private var stopShoppingOn = false
+    @State private var stopEducationOn = false
+    @State private var carSaleOn = false
+    @State private var carSaleAmount: Double = 0
+    @State private var borrowOn = false
+    @State private var borrowAmount: Double = 0
+    @State private var borrowRepayment: Double = 0
 
     enum Scenario: String, Identifiable {
         case sellCar = "卖车"
@@ -29,7 +36,8 @@ struct SimulatorView: View {
     }
 
     private var targetResult: SurvivalTarget? {
-        SurvivalCalculator.projectTarget(profile: profile, targetMonths: targetMonths)
+        // 联动：模拟过就用模拟后的收支，没模拟过用原始数据
+        SurvivalCalculator.projectTarget(report: simulatedReport ?? currentReport, targetMonths: targetMonths)
     }
     
     var body: some View {
@@ -134,46 +142,111 @@ struct SimulatorView: View {
 
                         HStack(spacing: 8) {
                             Button {
-                                activeScenario = .sellCar
+                                if carSaleOn && carSaleAmount > 0 {
+                                    carSaleOn = false
+                                } else {
+                                    activeScenario = .sellCar
+                                }
                             } label: {
-                                Text("🚗 卖车")
+                                VStack(spacing: 2) {
+                                    HStack(spacing: 4) {
+                                        Text("🚗 卖车")
+                                        if carSaleOn { Image(systemName: "checkmark.circle.fill").font(.caption2) }
+                                    }
+                                    if carSaleOn {
+                                        Text("¥\(Int(carSaleAmount))")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
                             }
                             .buttonStyle(.bordered)
+                            .tint(carSaleOn ? .orange : .gray)
 
                             Button {
-                                stopShopping()
+                                stopShoppingOn.toggle()
+                                calculate()
                                 withAnimation { proxy.scrollTo("simResult", anchor: .top) }
                             } label: {
-                                Text("✂️ 停购物")
+                                VStack(spacing: 2) {
+                                    HStack(spacing: 4) {
+                                        Text("✂️ 停购物")
+                                        if stopShoppingOn { Image(systemName: "checkmark.circle.fill").font(.caption2) }
+                                    }
+                                    if stopShoppingOn {
+                                        Text("已停")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
                             }
                             .buttonStyle(.bordered)
+                            .tint(stopShoppingOn ? .orange : .gray)
 
                             Button {
-                                stopEducation()
+                                stopEducationOn.toggle()
+                                calculate()
                                 withAnimation { proxy.scrollTo("simResult", anchor: .top) }
                             } label: {
-                                Text("🎒 停兴趣班")
+                                VStack(spacing: 2) {
+                                    HStack(spacing: 4) {
+                                        Text("🎒 停兴趣班")
+                                        if stopEducationOn { Image(systemName: "checkmark.circle.fill").font(.caption2) }
+                                    }
+                                    if stopEducationOn {
+                                        Text("已停")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
                             }
                             .buttonStyle(.bordered)
+                            .tint(stopEducationOn ? .orange : .gray)
 
                             Button {
-                                activeScenario = .borrow
+                                if borrowOn && borrowAmount > 0 {
+                                    borrowOn = false
+                                } else {
+                                    activeScenario = .borrow
+                                }
                             } label: {
-                                Text("💰 借款")
+                                VStack(spacing: 2) {
+                                    HStack(spacing: 4) {
+                                        Text("💰 借款")
+                                        if borrowOn { Image(systemName: "checkmark.circle.fill").font(.caption2) }
+                                    }
+                                    if borrowOn {
+                                        Text("¥\(Int(borrowAmount))")
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
                             }
                             .buttonStyle(.bordered)
+                            .tint(borrowOn ? .orange : .gray)
                         }
                         .font(.caption)
 
-                        Text("点击场景立即模拟，可叠加「找到工作」一起算")
+                        // 已启用场景汇总
+                        if !enabledScenarios.isEmpty {
+                            HStack(spacing: 4) {
+                                Image(systemName: "info.circle")
+                                Text("已启用：\(enabledScenarios.joined(separator: "、"))")
+                                    .font(.caption2)
+                                    .foregroundStyle(.orange)
+                                Spacer()
+                            }
+                        }
+
+                        Text("点击场景立即模拟，可叠加「找到工作」一起算；再点一次可停用")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
                     .padding()
                     .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
                     .sheet(item: $activeScenario) { scenario in
-                        ScenarioSheet(scenario: scenario) { params in
-                            applyScenario(scenario, params: params)
+                        ScenarioSheet(scenario: scenario, initialAmount: scenario == .sellCar ? carSaleAmount : borrowAmount, initialRepayment: borrowRepayment) { params in
+                            applyScenario(scenario, params: params, proxy: proxy)
                         }
                     }
 
@@ -315,15 +388,58 @@ struct SimulatorView: View {
         if shoppingCut > 0 { categoryCuts["购物"] = shoppingCut }
         if socialCut > 0 { categoryCuts["人情"] = socialCut }
 
-        let changes = SimulatedChanges(
+        var changes = SimulatedChanges(
             newMonthlyIncome: newJobIncome > 0 ? newJobIncome : nil,
-            oneTimeIncome: nil,
             findJobInMonths: newJobIncome > 0 ? findJobInMonths : nil,
             probationIncome: probationMonths > 0 && probationIncome > 0 ? probationIncome : nil,
             probationMonths: probationMonths,
             categoryCuts: categoryCuts
         )
+        // 合并已启用的场景
+        mergeScenarioChanges(into: &changes)
         simulatedReport = SurvivalCalculator.simulate(profile: profile, changes: changes)
+    }
+
+    /// 已启用场景的汇总文案
+    private var enabledScenarios: [String] {
+        var list: [String] = []
+        if stopShoppingOn { list.append("停购物") }
+        if stopEducationOn { list.append("停兴趣班") }
+        if carSaleOn && carSaleAmount > 0 { list.append("卖车 ¥\(Int(carSaleAmount))") }
+        if borrowOn && borrowAmount > 0 { list.append("借款 ¥\(Int(borrowAmount))") }
+        return list
+    }
+
+    /// 把已启用的场景合并进模拟变更
+    private func mergeScenarioChanges(into changes: inout SimulatedChanges) {
+        if stopShoppingOn { changes.zeroOutShopping = true }
+        if stopEducationOn { changes.zeroOutEducation = true }
+        if carSaleOn && carSaleAmount > 0 {
+            changes.removeCarLoan = true
+            changes.carSaleAmount = carSaleAmount
+        }
+        if borrowOn && borrowAmount > 0 {
+            changes.oneTimeIncome = borrowAmount
+            changes.extraMonthlyRepayment = borrowRepayment
+        }
+    }
+
+    private func applyScenario(_ scenario: Scenario, params: [String: Double], proxy: ScrollViewProxy) {
+        hideKeyboard()
+        switch scenario {
+        case .sellCar:
+            carSaleAmount = params["amount"] ?? 0
+            carSaleOn = carSaleAmount > 0
+        case .borrow:
+            borrowAmount = params["amount"] ?? 0
+            borrowRepayment = params["repayment"] ?? 0
+            borrowOn = borrowAmount > 0
+        }
+        calculate()
+        // sheet 关闭后滚动到结果
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            withAnimation { proxy.scrollTo("simResult", anchor: .top) }
+        }
     }
 
     private func cutField(_ label: String, value: Binding<Double>) -> some View {
@@ -363,32 +479,6 @@ struct SimulatorView: View {
         date.formatted(.dateTime.year().month().day())
     }
 
-    private func stopShopping() {
-        hideKeyboard()
-        let changes = SimulatedChanges(zeroOutShopping: true)
-        simulatedReport = SurvivalCalculator.simulate(profile: profile, changes: changes)
-    }
-
-    private func stopEducation() {
-        hideKeyboard()
-        let changes = SimulatedChanges(zeroOutEducation: true)
-        simulatedReport = SurvivalCalculator.simulate(profile: profile, changes: changes)
-    }
-
-    private func applyScenario(_ scenario: Scenario, params: [String: Double]) {
-        hideKeyboard()
-        var changes = SimulatedChanges()
-        switch scenario {
-        case .sellCar:
-            changes.removeCarLoan = true
-            changes.carSaleAmount = params["amount"] ?? 0
-        case .borrow:
-            changes.oneTimeIncome = params["amount"] ?? 0
-            changes.extraMonthlyRepayment = params["repayment"] ?? 0
-        }
-        simulatedReport = SurvivalCalculator.simulate(profile: profile, changes: changes)
-    }
-    
     private func hideKeyboard() {
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
@@ -489,6 +579,8 @@ struct TimelineComparisonChart: View {
 // MARK: - 场景参数输入
 struct ScenarioSheet: View {
     let scenario: SimulatorView.Scenario
+    let initialAmount: Double
+    let initialRepayment: Double
     let onApply: ([String: Double]) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -520,6 +612,10 @@ struct ScenarioSheet: View {
                 }
             }
             .navigationTitle(scenario.rawValue)
+            .onAppear {
+                if amount.isEmpty && initialAmount > 0 { amount = String(Int(initialAmount)) }
+                if repayment.isEmpty && initialRepayment > 0 { repayment = String(Int(initialRepayment)) }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }

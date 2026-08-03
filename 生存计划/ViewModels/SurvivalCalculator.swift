@@ -319,8 +319,8 @@ struct SurvivalTarget {
 
 extension SurvivalCalculator {
     /// 目标反推：给定目标月数，计算每月最多可花多少、还差多少需要削减/增收
-    static func projectTarget(profile: UserProfile, targetMonths: Int) -> SurvivalTarget {
-        let report = calculate(from: profile)
+    /// - Parameter report: 用于反推的收支快照（可传模拟后的报告，实现联动）
+    static func projectTarget(report: SurvivalReport, targetMonths: Int) -> SurvivalTarget {
         let monthlySpendable = report.totalSavings / Double(max(targetMonths, 1))
         let cutNeeded = report.totalMonthlyExpenses - monthlySpendable
         return SurvivalTarget(
