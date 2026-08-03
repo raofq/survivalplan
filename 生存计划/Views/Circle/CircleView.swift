@@ -280,6 +280,12 @@ struct PostCard: View {
     }
 }
 
+// MARK: - 已选图片（稳定 id，避免 offset 越界）
+struct PickedImage: Identifiable {
+    let id = UUID()
+    let image: UIImage
+}
+
 // MARK: - 发帖
 struct NewPostSheet: View {
     let author: String
@@ -289,7 +295,7 @@ struct NewPostSheet: View {
     @State private var category = "树洞"
     @State private var title = ""
     @State private var content = ""
-    @State private var selectedImages: [UIImage] = []
+    @State private var selectedImages: [PickedImage] = []
     @State private var isUploading = false
     @State private var showPicker = false
     @State private var uploadError = false
@@ -319,15 +325,15 @@ struct NewPostSheet: View {
                 Section("图片（选填，最多 \(maxImages) 张）") {
                     // 九宫格预览
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
-                        ForEach(Array(selectedImages.enumerated()), id: \.offset) { index, image in
-                            Image(uiImage: image)
+                        ForEach(selectedImages) { picked in
+                            Image(uiImage: picked.image)
                                 .resizable()
                                 .scaledToFill()
                                 .frame(height: 90)
                                 .clipShape(RoundedRectangle(cornerRadius: 8))
                                 .overlay(alignment: .topTrailing) {
                                     Button {
-                                        selectedImages.remove(at: index)
+                                        selectedImages.removeAll { $0.id == picked.id }
                                     } label: {
                                         Image(systemName: "xmark.circle.fill")
                                             .font(.title3)
@@ -398,8 +404,8 @@ struct NewPostSheet: View {
         Task {
             var urls: [String] = []
             do {
-                for image in selectedImages {
-                    urls.append(try await CircleAPI.uploadImage(image))
+                for picked in selectedImages {
+                    urls.append(try await CircleAPI.uploadImage(picked.image))
                 }
                 onPost(category, title, content, urls)
                 dismiss()
@@ -413,7 +419,7 @@ struct NewPostSheet: View {
 
 // MARK: - 相册选择（多选，PHPicker）
 struct PhotoPicker: UIViewControllerRepresentable {
-    @Binding var selectedImages: [UIImage]
+    @Binding var selectedImages: [PickedImage]
     let maxCount: Int
 
     func makeUIViewController(context: Context) -> PHPickerViewController {
@@ -440,7 +446,7 @@ struct PhotoPicker: UIViewControllerRepresentable {
                     guard let self, let image = image as? UIImage else { return }
                     DispatchQueue.main.async {
                         if self.parent.selectedImages.count < self.parent.maxCount {
-                            self.parent.selectedImages.append(image)
+                            self.parent.selectedImages.append(PickedImage(image: image))
                         }
                     }
                 }
