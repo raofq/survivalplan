@@ -34,8 +34,9 @@ struct SimulatorView: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 16) {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(spacing: 16) {
                     // 当前状况
                     VStack(spacing: 8) {
                         HStack {
@@ -141,6 +142,7 @@ struct SimulatorView: View {
 
                             Button {
                                 stopShopping()
+                                withAnimation { proxy.scrollTo("simResult", anchor: .top) }
                             } label: {
                                 Text("✂️ 停购物")
                             }
@@ -148,6 +150,7 @@ struct SimulatorView: View {
 
                             Button {
                                 stopEducation()
+                                withAnimation { proxy.scrollTo("simResult", anchor: .top) }
                             } label: {
                                 Text("🎒 停兴趣班")
                             }
@@ -285,11 +288,13 @@ struct SimulatorView: View {
                         // 资金曲线对比
                         TimelineComparisonChart(current: currentReport, simulated: report)
                     }
+                    .id("simResult")
                 }
                 .padding()
+                }
+                .scrollDismissesKeyboard(.immediately)
+                .scrollDisabled(false)
             }
-            .scrollDismissesKeyboard(.immediately)
-            .scrollDisabled(false)
             .navigationTitle("模拟器")
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
