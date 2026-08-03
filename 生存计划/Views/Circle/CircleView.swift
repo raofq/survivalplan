@@ -288,6 +288,7 @@ struct CircleView: View {
             post.deviceId = CircleAPI.deviceID   // 本地缓存标记「我的帖子」
             modelContext.insert(post)
             try? modelContext.save()
+            DailyPostCounter.increment()         // 计入当日发帖数
             await loadPosts()
         } catch {
             errorMessage = "发帖失败：\(error.localizedDescription)"
@@ -535,6 +536,7 @@ struct NewPostSheet: View {
     @State private var selectedImages: [PickedImage] = []
     @State private var isUploading = false
     @State private var showPicker = false
+    @State private var showLimitAlert = false
     @State private var uploadError = false
     @State private var location = ""
     @State private var salary = ""
@@ -626,6 +628,14 @@ struct NewPostSheet: View {
                     Text("社区规范：不发广告、不人身攻击、不传播虚假信息。违反将被删除。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    if !ProFeatures.circlePostLimit {
+                        HStack(spacing: 4) {
+                            Text("今日还可发布 \(DailyPostCounter.remaining()) 次")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                            Spacer()
+                        }
+                    }
                 }
             }
             .navigationTitle("发布帖子")
@@ -654,10 +664,20 @@ struct NewPostSheet: View {
             } message: {
                 Text("图片上传失败，请重试")
             }
+            .alert("今日发帖已达上限", isPresented: $showLimitAlert) {
+                Button("好") {}
+            } message: {
+                Text("免费用户每天可发布 \(DailyPostCounter.freeDailyLimit) 条。升级 Pro 后可不受限制地发帖。")
+            }
         }
     }
 
     private func submit() {
+        // 免费用户每日发帖上限
+        guard DailyPostCounter.canPostToday() else {
+            showLimitAlert = true
+            return
+        }
         let trimmedLocation = location.trimmingCharacters(in: .whitespaces)
         let trimmedSalary = salary.trimmingCharacters(in: .whitespaces)
         guard !selectedImages.isEmpty else {

@@ -20,6 +20,8 @@ enum ProFeatures {
     // MARK: - 圈子
     /// 求职加成：工作帖高级筛选 / 岗位订阅推送
     static var circleJobBoost: Bool { isPro }
+    /// 发帖不限次（免费用户每日 3 条；后端另有 20 条/天防刷底线）
+    static var circlePostLimit: Bool { isPro }
     /// AI 简历生成
     static var aiResume: Bool { isPro }
 

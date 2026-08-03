@@ -31,6 +31,7 @@
 		D9E0F1A2B3C4D5E6F7A8B9C0 /* DataBackup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 566B38769CB5149C68D749B2 /* DataBackup.swift */; };
 		E9F0A1B2C3D4E5F6A7B8C9D0 /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A1B2C3D4E5F6A7B8C9D0E1 /* PaywallView.swift */; };
 		D7E8F9A0B1C2D3E4F5A6B7C8 /* CircleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8F9A0B1C2D3E4F5A6B7C8D9 /* CircleView.swift */; };
+		5A697C817403223CE438CCE4 /* DailyPostCounter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81DE3624A1B798FC88A127E3 /* DailyPostCounter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -78,6 +79,7 @@
 		566B38769CB5149C68D749B2 /* DataBackup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataBackup.swift; sourceTree = "<group>"; };
 		F0A1B2C3D4E5F6A7B8C9D0E1 /* PaywallView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaywallView.swift; sourceTree = "<group>"; };
 		E8F9A0B1C2D3E4F5A6B7C8D9 /* CircleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CircleView.swift; sourceTree = "<group>"; };
+		81DE3624A1B798FC88A127E3 /* DailyPostCounter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPostCounter.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -171,6 +173,7 @@
 				C7D8E9F0A1B2C3D4E5F6A7B8 /* FeatureFlags.swift */,
 				D8E9F0A1B2C3D4E5F6A7B8C9 /* StoreManager.swift */,
 				566B38769CB5149C68D749B2 /* DataBackup.swift */,
+				81DE3624A1B798FC88A127E3 /* DailyPostCounter.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -472,6 +475,7 @@
 				B6C7D8E9F0A1B2C3D4E5F6A7 /* FeatureFlags.swift in Sources */,
 				C8D9E0F1A2B3C4D5E6F7A8 /* StoreManager.swift in Sources */,
 				D9E0F1A2B3C4D5E6F7A8B9C0 /* DataBackup.swift in Sources */,
+				5A697C817403223CE438CCE4 /* DailyPostCounter.swift in Sources */,
 				E9F0A1B2C3D4E5F6A7B8C9D0 /* PaywallView.swift in Sources */,
 				D7E8F9A0B1C2D3E4F5A6B7C8 /* CircleView.swift in Sources */,
 			);
