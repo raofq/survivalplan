@@ -106,7 +106,7 @@ struct SimulatorView: View {
                         }
 
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("削减开支（按分类）")
+                            Text("削减开支（按百分比）")
                                 .font(.subheadline)
                             HStack(spacing: 8) {
                                 cutField("食品", value: $foodCut)
@@ -382,11 +382,13 @@ struct SimulatorView: View {
     
     private func calculate() {
         hideKeyboard()
+        // 百分比 → 实际削减金额（基于对应分类的月预算）
+        let base = currentReport
         var categoryCuts: [String: Double] = [:]
-        if foodCut > 0 { categoryCuts["食品"] = foodCut }
-        if transportCut > 0 { categoryCuts["交通"] = transportCut }
-        if shoppingCut > 0 { categoryCuts["购物"] = shoppingCut }
-        if socialCut > 0 { categoryCuts["人情"] = socialCut }
+        if foodCut > 0 { categoryCuts["食品"] = base.foodBudget * 30 * foodCut / 100 }
+        if transportCut > 0 { categoryCuts["交通"] = base.transportBudget * 30 * transportCut / 100 }
+        if shoppingCut > 0 { categoryCuts["购物"] = base.shoppingBudget * 30 * shoppingCut / 100 }
+        if socialCut > 0 { categoryCuts["人情"] = base.socialBudget * 30 * socialCut / 100 }
 
         var changes = SimulatedChanges(
             newMonthlyIncome: newJobIncome > 0 ? newJobIncome : nil,
@@ -447,12 +449,18 @@ struct SimulatorView: View {
             Text(label)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
-            TextField("0", value: value, format: .number)
-                .keyboardType(.numberPad)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 64)
-                .multilineTextAlignment(.center)
+            HStack(spacing: 2) {
+                TextField("0", value: value, format: .number)
+                    .keyboardType(.numberPad)
+                    .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.center)
+                Text("%")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
         }
+        .frame(maxWidth: .infinity)
     }
 
     private func comparisonRow(label: String, before: String, after: String, improved: Bool) -> some View {
