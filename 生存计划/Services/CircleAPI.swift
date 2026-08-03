@@ -13,11 +13,17 @@ enum CircleAPI {
         return URL(string: path, relativeTo: serverRoot)?.absoluteURL
     }
 
-    // 拉取帖子（可选按分类）
-    static func fetchPosts(category: String? = nil) async throws -> [Post] {
+    // 拉取帖子（可选按分类，分页）
+    static func fetchPosts(category: String? = nil, offset: Int = 0, limit: Int = 20) async throws -> [Post] {
         var url = baseURL.appendingPathComponent("posts")
+        var query: [URLQueryItem] = []
         if let category, category != "全部" {
-            url = url.appending(queryItems: [URLQueryItem(name: "category", value: category)])
+            query.append(URLQueryItem(name: "category", value: category))
+        }
+        query.append(URLQueryItem(name: "offset", value: String(offset)))
+        query.append(URLQueryItem(name: "limit", value: String(limit)))
+        if !query.isEmpty {
+            url = url.appending(queryItems: query)
         }
         let (data, response) = try await URLSession.shared.data(from: url)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {

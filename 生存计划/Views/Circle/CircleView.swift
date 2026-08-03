@@ -10,6 +10,8 @@ struct CircleView: View {
     @State private var posts: [Post] = []
     @State private var selectedCategory = "全部"
     @State private var isLoading = false
+    @State private var isLoadingMore = false
+    @State private var hasMorePosts = true
     @State private var showError = false
     @State private var errorMessage = ""
     @State private var showNewPost = false
@@ -17,6 +19,7 @@ struct CircleView: View {
     @State private var author = UserDefaults.standard.string(forKey: "circle_author") ?? "匿名"
 
     let categories = ["全部", "运动", "学习", "搞钱", "教育", "树洞", "工作"]
+    private let pageSize = 20
 
     var body: some View {
         NavigationStack {
@@ -107,12 +110,42 @@ struct CircleView: View {
                                 }
                                 .buttonStyle(.plain)
                             }
+
+                            // 加载更多
+                            if hasMorePosts {
+                                Button {
+                                    Task { await loadMore() }
+                                } label: {
+                                    HStack {
+                                        Spacer()
+                                        if isLoadingMore {
+                                            ProgressView()
+                                        } else {
+                                            Text("加载更多")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        Spacer()
+                                    }
+                                    .padding(.vertical, 8)
+                                }
+                                .disabled(isLoadingMore)
+                            } else {
+                                Text("— 没有更多帖子了 —")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                            }
                         }
                     }
                     .padding()
                     .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
                 }
                 .padding()
+            }
+            .refreshable {
+                await refreshPosts()
             }
             .navigationTitle("圈子")
             .toolbar {
@@ -152,12 +185,37 @@ struct CircleView: View {
         isLoading = true
         defer { isLoading = false }
         do {
-            let fetched = try await CircleAPI.fetchPosts(category: selectedCategory)
+            let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, offset: 0, limit: pageSize)
             posts = fetched
+            hasMorePosts = fetched.count == pageSize
         } catch {
             errorMessage = "无法连接服务器（\(error.localizedDescription)）。请确认后端服务已启动。"
             showError = true
             posts = cachedPosts.filter { selectedCategory == "全部" || $0.category == selectedCategory }
+            hasMorePosts = false
+        }
+    }
+
+    private func refreshPosts() async {
+        do {
+            let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, offset: 0, limit: pageSize)
+            posts = fetched
+            hasMorePosts = fetched.count == pageSize
+        } catch {
+            // 下拉刷新失败静默，保留现有列表
+        }
+    }
+
+    private func loadMore() async {
+        guard !isLoadingMore, hasMorePosts else { return }
+        isLoadingMore = true
+        defer { isLoadingMore = false }
+        do {
+            let fetched = try await CircleAPI.fetchPosts(category: selectedCategory, offset: posts.count, limit: pageSize)
+            posts.append(contentsOf: fetched)
+            hasMorePosts = fetched.count == pageSize
+        } catch {
+            // 加载更多失败静默
         }
     }
 
