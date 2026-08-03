@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import PhotosUI
 
 // MARK: - 圈子：运动/学习打卡 + 互助社区
 struct CircleView: View {
@@ -410,36 +411,40 @@ struct NewPostSheet: View {
     }
 }
 
-// MARK: - 相册选择（多选）
+// MARK: - 相册选择（多选，PHPicker）
 struct PhotoPicker: UIViewControllerRepresentable {
     @Binding var selectedImages: [UIImage]
     let maxCount: Int
 
-    func makeUIViewController(context: Context) -> UIImagePickerController {
-        let picker = UIImagePickerController()
-        picker.sourceType = .photoLibrary
+    func makeUIViewController(context: Context) -> PHPickerViewController {
+        var config = PHPickerConfiguration(photoLibrary: .shared())
+        config.selectionLimit = max(1, maxCount)   // 一次最多选 maxCount 张
+        config.filter = .images
+        let picker = PHPickerViewController(configuration: config)
         picker.delegate = context.coordinator
         return picker
     }
 
-    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+    func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
-    class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+    class Coordinator: NSObject, PHPickerViewControllerDelegate {
         let parent: PhotoPicker
         init(_ parent: PhotoPicker) { self.parent = parent }
 
-        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
-            // UIImagePickerController 单张；这里追加一张，直到 9 张上限
-            if let image = info[.originalImage] as? UIImage,
-               parent.selectedImages.count < parent.maxCount {
-                parent.selectedImages.append(image)
+        func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+            for result in results {
+                guard result.itemProvider.canLoadObject(ofClass: UIImage.self) else { continue }
+                result.itemProvider.loadObject(ofClass: UIImage.self) { [weak self] image, _ in
+                    guard let self, let image = image as? UIImage else { return }
+                    DispatchQueue.main.async {
+                        if self.parent.selectedImages.count < self.parent.maxCount {
+                            self.parent.selectedImages.append(image)
+                        }
+                    }
+                }
             }
-            picker.dismiss(animated: true)
-        }
-
-        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
             picker.dismiss(animated: true)
         }
     }
