@@ -15,7 +15,8 @@ struct SimulatorView: View {
     @State private var findJobInMonths: Int = 3
     @State private var showResult = false
     @State private var simulatedReport: SurvivalReport?
-    @State private var targetMonths: Int = 12
+    @State private var targetMonths = 12
+    @State private var showProLock = false
     @State private var activeScenario: Scenario?
     @State private var stopShoppingOn = false
     @State private var stopEducationOn = false
@@ -86,12 +87,19 @@ struct SimulatorView: View {
                         }
 
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("试用期（选填）")
-                                .font(.subheadline)
+                            HStack(spacing: 6) {
+                                Text("试用期（选填）")
+                                    .font(.subheadline)
+                                if !ProFeatures.simulatorTrialParams {
+                                    ProLock.badge()
+                                }
+                            }
                             HStack {
                                 TextField("试用期月薪", value: $probationIncome, format: .number)
                                     .keyboardType(.decimalPad)
                                     .textFieldStyle(.roundedBorder)
+                                    .disabled(!ProFeatures.simulatorTrialParams)
+                                    .opacity(ProFeatures.simulatorTrialParams ? 1 : 0.4)
                                 Text("元/月")
                                     .font(.subheadline)
                             }
@@ -103,6 +111,17 @@ struct SimulatorView: View {
                                 Text("6个月").tag(6)
                             }
                             .pickerStyle(.segmented)
+                            .disabled(!ProFeatures.simulatorTrialParams)
+                            .opacity(ProFeatures.simulatorTrialParams ? 1 : 0.4)
+                            if !ProFeatures.simulatorTrialParams {
+                                Button {
+                                    showProLock = true
+                                } label: {
+                                    Label("试用期参数是 Pro 功能", systemImage: "lock.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(.orange)
+                                }
+                            }
                         }
 
                         VStack(alignment: .leading, spacing: 8) {
@@ -137,6 +156,9 @@ struct SimulatorView: View {
                             Image(systemName: "square.grid.2x2.fill")
                             Text("场景模拟")
                                 .font(.headline)
+                            if !ProFeatures.simulatorScenarios {
+                                ProLock.badge()
+                            }
                             Spacer()
                         }
 
@@ -146,10 +168,12 @@ struct SimulatorView: View {
                                 isOn: carSaleOn,
                                 statusText: carSaleOn ? "¥\(Int(carSaleAmount))" : "未启用"
                             ) {
-                                if carSaleOn && carSaleAmount > 0 {
-                                    carSaleOn = false
-                                } else {
-                                    activeScenario = .sellCar
+                                proGate {
+                                    if carSaleOn && carSaleAmount > 0 {
+                                        carSaleOn = false
+                                    } else {
+                                        activeScenario = .sellCar
+                                    }
                                 }
                             }
 
@@ -158,9 +182,11 @@ struct SimulatorView: View {
                                 isOn: stopShoppingOn,
                                 statusText: stopShoppingOn ? "已停" : "未启用"
                             ) {
-                                stopShoppingOn.toggle()
-                                calculate()
-                                withAnimation { proxy.scrollTo("simResult", anchor: .top) }
+                                proGate {
+                                    stopShoppingOn.toggle()
+                                    calculate()
+                                    withAnimation { proxy.scrollTo("simResult", anchor: .top) }
+                                }
                             }
 
                             scenarioButton(
@@ -168,9 +194,11 @@ struct SimulatorView: View {
                                 isOn: stopEducationOn,
                                 statusText: stopEducationOn ? "已停" : "未启用"
                             ) {
-                                stopEducationOn.toggle()
-                                calculate()
-                                withAnimation { proxy.scrollTo("simResult", anchor: .top) }
+                                proGate {
+                                    stopEducationOn.toggle()
+                                    calculate()
+                                    withAnimation { proxy.scrollTo("simResult", anchor: .top) }
+                                }
                             }
 
                             scenarioButton(
@@ -178,10 +206,12 @@ struct SimulatorView: View {
                                 isOn: borrowOn,
                                 statusText: borrowOn ? "¥\(Int(borrowAmount))" : "未启用"
                             ) {
-                                if borrowOn && borrowAmount > 0 {
-                                    borrowOn = false
-                                } else {
-                                    activeScenario = .borrow
+                                proGate {
+                                    if borrowOn && borrowAmount > 0 {
+                                        borrowOn = false
+                                    } else {
+                                        activeScenario = .borrow
+                                    }
                                 }
                             }
                         }
@@ -284,9 +314,19 @@ struct SimulatorView: View {
                                     Label("方案一：每月削减开支 ¥\(Int(target.cutNeeded))", systemImage: "scissors")
                                         .font(.caption)
                                         .foregroundStyle(.orange)
-                                    Label("方案二：找月薪 ≥ ¥\(Int(target.cutNeeded + currentReport.totalMonthlyIncome)) 的工作（当前收入 ¥\(Int(currentReport.totalMonthlyIncome)) + 缺口 ¥\(Int(target.cutNeeded))）", systemImage: "briefcase.fill")
-                                        .font(.caption)
-                                        .foregroundStyle(.orange)
+                                    if ProFeatures.targetJobAdvice {
+                                        Label("方案二：找月薪 ≥ ¥\(Int(target.cutNeeded + currentReport.totalMonthlyIncome)) 的工作（当前收入 ¥\(Int(currentReport.totalMonthlyIncome)) + 缺口 ¥\(Int(target.cutNeeded))）", systemImage: "briefcase.fill")
+                                            .font(.caption)
+                                            .foregroundStyle(.orange)
+                                    } else {
+                                        HStack(spacing: 4) {
+                                            Label("方案二：找工作的具体建议", systemImage: "lock.fill")
+                                                .font(.caption)
+                                                .foregroundStyle(.orange)
+                                            Spacer()
+                                            ProLock.badge()
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -369,9 +409,22 @@ struct SimulatorView: View {
                     }
                 }
             }
+            .alert("Pro 专属功能", isPresented: $showProLock) {
+                Button("好") {}
+            } message: {
+                Text(ProLock.message(for: "场景模拟"))
+            }
         }
     }
-    
+
+    /// Pro 功能门：未解锁时弹提示，不解锁不执行
+    private func proGate(_ action: @escaping () -> Void) {
+        if ProFeatures.simulatorScenarios {
+            action()
+        } else {
+            showProLock = true
+        }
+    }
     private func calculate() {
         hideKeyboard()
         // 百分比 → 实际削减金额（基于对应分类的月预算）

@@ -498,9 +498,19 @@ struct DataManageView: View {
                 Button {
                     exportCSV()
                 } label: {
-                    Label("导出 CSV", systemImage: "square.and.arrow.up")
+                    Label("导出 CSV（基础）", systemImage: "square.and.arrow.up")
                 }
                 .disabled(expenses.isEmpty)
+
+                // Pro：完整导出包
+                HStack {
+                    Label("完整导出（含圈子/打卡/图片）", systemImage: ProFeatures.fullExport ? "externaldrive.fill" : "lock.fill")
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    if !ProFeatures.fullExport {
+                        ProLock.badge()
+                    }
+                }
 
                 if showExportSuccess {
                     Text("CSV 已生成，请分享到文件或邮件")
