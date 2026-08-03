@@ -234,25 +234,50 @@ struct SimulatorView: View {
                         if let target = targetResult {
                             Divider()
 
+                            // 计算过程：积蓄 ÷ 目标月数
+                            HStack {
+                                Text("积蓄 ¥\(Int(currentReport.totalSavings)) ÷ \(target.targetMonths) 个月")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text("= ¥\(Int(target.monthlySpendable))/月")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
                             HStack {
                                 Text("每月最多可花")
+                                    .font(.subheadline)
                                 Spacer()
                                 Text("¥\(Int(target.monthlySpendable))")
+                                    .font(.title3)
                                     .fontWeight(.bold)
                                     .foregroundStyle(.blue)
                             }
-                            .font(.subheadline)
+
+                            HStack {
+                                Text("当前每月支出")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Text("¥\(Int(currentReport.totalMonthlyExpenses))")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+                            }
 
                             if target.isAchievable {
-                                Label("当前资金可撑 \(target.targetMonths) 个月，每月还可结余 ¥\(Int(-target.cutNeeded))", systemImage: "checkmark.circle.fill")
+                                Label("每月支出在额度内，按现状能撑满 \(target.targetMonths) 个月，每月还能剩 ¥\(Int(-target.cutNeeded))", systemImage: "checkmark.circle.fill")
                                     .font(.caption)
                                     .foregroundStyle(.green)
                             } else {
                                 VStack(alignment: .leading, spacing: 6) {
-                                    Label("还差 ¥\(Int(target.cutNeeded)) / 月才能撑 \(target.targetMonths) 个月", systemImage: "exclamationmark.triangle.fill")
+                                    Label("每月支出比额度多 ¥\(Int(target.cutNeeded))，按现状撑不到 \(target.targetMonths) 个月", systemImage: "exclamationmark.triangle.fill")
                                         .font(.caption)
                                         .foregroundStyle(.red)
-                                    Label("建议：每月削减 ¥\(Int(target.cutNeeded))，或找到月薪至少 ¥\(Int(target.cutNeeded + currentReport.totalMonthlyIncome)) 的工作", systemImage: "lightbulb.fill")
+                                    Label("方案一：每月削减开支 ¥\(Int(target.cutNeeded))", systemImage: "scissors")
+                                        .font(.caption)
+                                        .foregroundStyle(.orange)
+                                    Label("方案二：找月薪 ≥ ¥\(Int(target.cutNeeded + currentReport.totalMonthlyIncome)) 的工作（当前收入 ¥\(Int(currentReport.totalMonthlyIncome)) + 缺口 ¥\(Int(target.cutNeeded))）", systemImage: "briefcase.fill")
                                         .font(.caption)
                                         .foregroundStyle(.orange)
                                 }
