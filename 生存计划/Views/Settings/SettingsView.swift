@@ -880,11 +880,11 @@ struct AboutView: View {
             }
 
             Section {
+                Link(destination: URL(string: "https://github.com/raofq/survivalplan/issues")!) {
+                    Label("反馈与建议", systemImage: "envelope.fill")
+                }
                 Link(destination: URL(string: "https://github.com/raofq/survivalplan")!) {
                     Label("GitHub 仓库", systemImage: "chevron.left.forwardslash.chevron.right")
-                }
-                Link(destination: URL(string: "mailto:survivalplan.support@example.com")!) {
-                    Label("反馈与建议", systemImage: "envelope.fill")
                 }
             } header: {
                 Label("链接", systemImage: "globe")
