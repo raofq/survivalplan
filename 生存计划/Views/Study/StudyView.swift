@@ -26,7 +26,7 @@ struct StudyView: View {
                     // 周概览
                     HStack(spacing: 12) {
                         StatItem(value: "\(records.count)", label: "累计学习", color: .blue)
-                        StatItem(value: "\(weekMinutes)分", label: "本周时长", color: .green)
+                        StatItem(value: "\(weekMinutes)" + L("分"), label: "本周时长", color: .green)
                         StatItem(value: "\(totalMinutes / 60)h", label: "总时长", color: .orange)
                     }
                     .padding()
@@ -34,7 +34,7 @@ struct StudyView: View {
                     
                     // 记录表单
                     VStack(spacing: 14) {
-                        Text("记录一次学习")
+                        Text(L("记录一次学习"))
                             .font(.headline)
                             .frame(maxWidth: .infinity, alignment: .leading)
                         
@@ -47,14 +47,14 @@ struct StudyView: View {
                         
                         HStack {
                             TextField("学习时长（分钟）", text: $duration)
-                                .keyboardType(.numberPad)
+                                .keyboardType(.decimalPad)
                                 .textFieldStyle(.roundedBorder)
-                            Text("分钟")
+                            Text(L("分钟"))
                                 .font(.subheadline)
                         }
                         
                         Button(action: saveStudy) {
-                            Text("记录")
+                            Text(L("记录"))
                                 .font(.headline)
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
@@ -63,7 +63,7 @@ struct StudyView: View {
                         }
                         
                         if showFeedback {
-                            Label("已记录，每天进步一点点", systemImage: "checkmark.circle.fill")
+                            Label(L("已记录，每天进步一点点"), systemImage: "checkmark.circle.fill")
                                 .font(.caption)
                                 .foregroundStyle(.green)
                         }
@@ -73,14 +73,20 @@ struct StudyView: View {
                     
                     // 最近记录
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("最近记录")
+                        Text(L("最近记录"))
                             .font(.headline)
                         
                         if records.isEmpty {
-                            Text("还没有学习记录，开始学点新技能吧")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .padding(.vertical, 8)
+                            VStack(spacing: 6) {
+                                Image(systemName: "book.fill")
+                                    .font(.title2)
+                                    .foregroundStyle(.secondary)
+                                Text(L("还没有学习记录，开始学点新技能吧"))
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
                         } else {
                             ForEach(records.prefix(10)) { record in
                                 VStack(alignment: .leading, spacing: 4) {
@@ -117,6 +123,7 @@ struct StudyView: View {
     }
     
     private func saveStudy() {
+        AnalyticsService.shared.track("action_checkin_study")
         guard !skill.isEmpty, let mins = Int(duration), mins > 0 else { return }
         let record = StudyRecord()
         record.skill = skill
