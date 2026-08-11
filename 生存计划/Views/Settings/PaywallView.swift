@@ -42,7 +42,7 @@ struct PaywallView: View {
                     Button {
                         Task { await store.purchase() }
                     } label: {
-                        Text("解锁 Pro — \(product.displayPrice)")
+                        Text(Lf("解锁 Pro — %@", product.displayPrice))
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 6)
@@ -50,7 +50,7 @@ struct PaywallView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(.orange)
                 } else {
-                    Text(L("内购即将上线，敬请期待"))
+                    Text(L("产品加载中，请稍后重试"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
