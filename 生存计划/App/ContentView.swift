@@ -15,11 +15,11 @@ struct WelcomeView: View {
                     .font(.system(size: 80))
                     .foregroundStyle(.blue.gradient)
                 
-                Text("生存计划")
+                Text(L("生存计划"))
                     .font(.largeTitle)
                     .fontWeight(.bold)
                 
-                Text("知道钱在哪，日子就能过下去")
+                Text(L("知道钱在哪，日子就能过下去"))
                     .font(.headline)
                     .foregroundStyle(.secondary)
                 
@@ -34,7 +34,7 @@ struct WelcomeView: View {
                 Spacer()
                 
                 Button(action: { showSetup = true }) {
-                    Text("开始规划")
+                    Text(L("开始规划"))
                         .font(.headline)
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
@@ -61,7 +61,7 @@ struct FeatureRow: View {
                 .font(.title3)
                 .foregroundStyle(.blue)
                 .frame(width: 28)
-            Text(text)
+            Text(L(text))
                 .font(.subheadline)
         }
     }
@@ -74,16 +74,20 @@ struct MainTabView: View {
     var body: some View {
         TabView {
             DashboardView(profile: profile)
-                .tabItem { Label("看板", systemImage: "house.fill") }
+                .tabItem { Label(L("看板"), systemImage: "house.fill") }
+                .onAppear { AnalyticsService.shared.track("view_tab", params: ["tab": "看板"]) }
             
             BudgetView(profile: profile)
-                .tabItem { Label("预算", systemImage: "wallet.pass.fill") }
+                .tabItem { Label(L("预算"), systemImage: "wallet.pass.fill") }
+                .onAppear { AnalyticsService.shared.track("view_tab", params: ["tab": "预算"]) }
             
             SimulatorView(profile: profile)
-                .tabItem { Label("模拟", systemImage: "arrow.triangle.2.circlepath") }
+                .tabItem { Label(L("模拟"), systemImage: "arrow.triangle.2.circlepath") }
+                .onAppear { AnalyticsService.shared.track("view_tab", params: ["tab": "模拟"]) }
 
             CircleView()
-                .tabItem { Label("圈子", systemImage: "person.3.fill") }
+                .tabItem { Label(L("圈子"), systemImage: "person.3.fill") }
+                .onAppear { AnalyticsService.shared.track("view_tab", params: ["tab": "圈子"]) }
         }
     }
 }
