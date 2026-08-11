@@ -13,27 +13,6 @@
         }
       }
     },
-    "「\\(feature)」是 Pro 专属功能，买断解锁后可用（内购即将上线）":{
-      "extractionState":"stale",
-      "localizations":{
-        "en":{
-          "stringUnit":{
-            "state":"translated",
-            "value":"「\\(feature)」 is a Pro feature — unlock with a one-time purchase (IAP coming soon)"
-          }
-        }
-      }
-    },
-    "「%@」是 Pro 专属功能，买断解锁后可用（内购即将上线）":{
-      "localizations":{
-        "en":{
-          "stringUnit":{
-            "state":"translated",
-            "value":"「%@」 is a Pro feature — unlock with a one-time purchase (IAP coming soon)"
-          }
-        }
-      }
-    },
     "「如果…会怎样」模拟器":{
       "extractionState":"stale",
       "localizations":{
@@ -1367,17 +1346,6 @@
           "stringUnit":{
             "state":"translated",
             "value":"Content"
-          }
-        }
-      }
-    },
-    "内购即将上线，敬请期待":{
-      "extractionState":"stale",
-      "localizations":{
-        "en":{
-          "stringUnit":{
-            "state":"translated",
-            "value":"In-app purchase coming soon"
           }
         }
       }
@@ -5012,6 +4980,28 @@
           "stringUnit":{
             "state":"translated",
             "value":"Purchase failed: "
+          }
+        }
+      }
+    },
+    "「%@」是 Pro 专属功能，买断解锁后可用":{
+      "extractionState":"manual",
+      "localizations":{
+        "en":{
+          "stringUnit":{
+            "state":"translated",
+            "value":"%@ is a Pro-exclusive feature. Unlock it with a one-time purchase."
+          }
+        }
+      }
+    },
+    "产品加载中，请稍后重试":{
+      "extractionState":"manual",
+      "localizations":{
+        "en":{
+          "stringUnit":{
+            "state":"translated",
+            "value":"Loading product info, please try again."
           }
         }
       }
