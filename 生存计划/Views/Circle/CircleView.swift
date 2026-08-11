@@ -9,6 +9,8 @@ struct CircleView: View {
 
     @State private var posts: [Post] = []
     @State private var selectedCategory = "全部"
+    @State private var announcement: Announcement? = nil
+    @State private var announcementExpanded = false
     @State private var isLoading = false
     @State private var isLoadingMore = false
     @State private var hasMorePosts = true
@@ -29,11 +31,41 @@ struct CircleView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
+                    // 公告横幅（站内信）
+                    if let ann = announcement {
+                        Button {
+                            announcementExpanded.toggle()
+                        } label: {
+                            HStack(alignment: .top, spacing: 10) {
+                                Image(systemName: ann.isMaintenance ? "hammer.fill" : "megaphone.fill")
+                                    .foregroundStyle(ann.isMaintenance ? .white : .orange)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(ann.title)
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(ann.isMaintenance ? .white : .primary)
+                                    if announcementExpanded {
+                                        Text(ann.content)
+                                            .font(.caption)
+                                            .foregroundStyle(ann.isMaintenance ? .white.opacity(0.9) : .secondary)
+                                            .multilineTextAlignment(.leading)
+                                    }
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.down")
+                                    .font(.caption2)
+                                    .foregroundStyle(ann.isMaintenance ? .white.opacity(0.8) : .secondary)
+                                    .rotationEffect(.degrees(announcementExpanded ? 180 : 0))
+                            }
+                            .padding(12)
+                            .background(ann.isMaintenance ? Color.orange : Color(.secondarySystemBackground), in: .rect(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                    }
                     // 打卡入口
                     VStack(spacing: 10) {
                         HStack {
                             Image(systemName: "figure.walk")
-                            Text("今日打卡")
+                            Text(L("今日打卡"))
                                 .font(.headline)
                             Spacer()
                         }
@@ -41,7 +73,7 @@ struct CircleView: View {
                             NavigationLink {
                                 WorkoutView()
                             } label: {
-                                Label("运动", systemImage: "figure.run")
+                                Label(L("运动"), systemImage: "figure.run")
                                     .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.bordered)
@@ -49,7 +81,7 @@ struct CircleView: View {
                             NavigationLink {
                                 StudyView()
                             } label: {
-                                Label("学习", systemImage: "book.fill")
+                                Label(L("学习"), systemImage: "book.fill")
                                     .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.bordered)
@@ -62,13 +94,13 @@ struct CircleView: View {
                     // 发帖 + 分类
                     VStack(spacing: 12) {
                         HStack {
-                            Text("互助圈子")
+                            Text(L("互助圈子"))
                                 .font(.headline)
                             Spacer()
                             Button {
                                 showNewPost = true
                             } label: {
-                                Label("发帖", systemImage: "square.and.pencil")
+                                Label(L("发帖"), systemImage: "square.and.pencil")
                                     .font(.subheadline)
                             }
                             .buttonStyle(.borderedProminent)
@@ -78,7 +110,7 @@ struct CircleView: View {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
                                 ForEach(categories, id: \.self) { cat in
-                                    Button(cat) {
+                                    Button(L(cat)) {
                                         selectedCategory = cat
                                         Task { await loadPosts() }
                                     }
@@ -94,9 +126,9 @@ struct CircleView: View {
                                 .padding()
                         } else if posts.isEmpty {
                             VStack(spacing: 8) {
-                                Text("还没有帖子")
+                                Text(L("还没有帖子"))
                                     .foregroundStyle(.secondary)
-                                Text("成为第一个发声的人吧")
+                                Text(L("成为第一个发声的人吧"))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -121,7 +153,7 @@ struct CircleView: View {
                                     if isLoadingMore {
                                         ProgressView()
                                     } else {
-                                        Text("加载更多")
+                                        Text(L("加载更多"))
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                     }
@@ -131,7 +163,7 @@ struct CircleView: View {
                             }
                             .disabled(isLoadingMore)
                         } else {
-                            Text("— 没有更多帖子了 —")
+                            Text(L("— 没有更多帖子了 —"))
                                 .font(.caption2)
                                 .foregroundStyle(.tertiary)
                                 .frame(maxWidth: .infinity)
@@ -146,7 +178,9 @@ struct CircleView: View {
             .refreshable {
                 await refreshPosts()
             }
-            .navigationTitle("圈子")
+            .listStyle(.grouped)
+        .scrollIndicators(.hidden)
+        .navigationTitle("圈子")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
@@ -161,17 +195,17 @@ struct CircleView: View {
                             Task { await loadPosts() }
                         }
                         Divider()
-                        Button("自定义昵称…") {
+                        Button(L("自定义昵称…")) {
                             nicknameInput = author == "匿名" ? "" : author
                             showNicknameEditor = true
                         }
-                        Button("匿名") { setAuthor("匿名") }
+                        Button(L("匿名")) { setAuthor("匿名") }
                     } label: {
                         if showOnlyMine || showLikedOnly {
-                            Label(author, systemImage: "line.3.horizontal.decrease.circle.fill")
+                            Label(L(author), systemImage: "line.3.horizontal.decrease.circle.fill")
                                 .font(.caption)
                         } else {
-                            Text(author)
+                            Text(L(author))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -179,20 +213,20 @@ struct CircleView: View {
                 }
             }
             .sheet(isPresented: $showNewPost) {
-                NewPostSheet(author: author) { category, title, content, imageURLs, location, salary in
+                NewPostSheet(author: author) { category, title, content, imageURLs, location, salary, company, contact in
                     Task {
-                        await createPost(category: category, title: title, content: content, imageURLs: imageURLs, location: location, salary: salary)
+                        await createPost(category: category, title: title, content: content, imageURLs: imageURLs, location: location, salary: salary, company: company, contact: contact)
                     }
                 }
             }
             .alert("加载失败", isPresented: $showError) {
-                Button("好") {}
+                Button(L("好")) {}
             } message: {
                 Text(errorMessage)
             }
             .alert("设置昵称", isPresented: $showNicknameEditor) {
                 TextField("给自己起个名字（最多 12 字）", text: $nicknameInput)
-                Button("确定") {
+                Button(L("确定")) {
                     let trimmed = nicknameInput.trimmingCharacters(in: .whitespacesAndNewlines)
                     if !trimmed.isEmpty {
                         setAuthor(String(trimmed.prefix(12)))
@@ -200,11 +234,16 @@ struct CircleView: View {
                 }
                 Button("取消", role: .cancel) {}
             } message: {
-                Text("昵称只是显示名，不会影响你的身份")
+                Text(L("昵称只是显示名，不会影响你的身份"))
             }
         }
         .task {
             await loadPosts()
+            // 拉取公告（失败静默，走本地缓存）
+            if let ann = await CircleAPI.fetchAnnouncement() {
+                announcement = ann
+                if ann.isMaintenance { announcementExpanded = true }
+            }
         }
     }
 
@@ -228,7 +267,7 @@ struct CircleView: View {
                 hasMorePosts = fetched.count == pageSize
             }
         } catch {
-            errorMessage = "无法连接服务器（\(error.localizedDescription)）。请确认后端服务已启动。"
+            errorMessage = Lf("无法连接服务器（%@）。请稍后再试。", error.localizedDescription)
             showError = true
             posts = cachedPosts.filter { (selectedCategory == "全部" || $0.category == selectedCategory) && (!showLikedOnly || $0.isLikedByMe) }
             hasMorePosts = false
@@ -272,36 +311,43 @@ struct CircleView: View {
 
     private func deletePost(_ post: Post) async {
         do {
-            try await CircleAPI.deletePost(id: post.id, author: author)
+            try await CircleAPI.deletePost(id: post.id)
             posts.removeAll { $0.id == post.id }
             modelContext.delete(post)
             try? modelContext.save()
         } catch {
-            errorMessage = "删除失败：\(error.localizedDescription)"
+            errorMessage = Lf("删除失败：%@", error.localizedDescription)
             showError = true
         }
     }
 
-    private func createPost(category: String, title: String, content: String, imageURLs: [String], location: String, salary: String) async {
+    private func createPost(category: String, title: String, content: String, imageURLs: [String], location: String, salary: String, company: String, contact: String) async {
         do {
-            let post = try await CircleAPI.createPost(category: category, title: title, content: content, author: author, imageURLs: imageURLs, location: location.isEmpty ? nil : location, salary: salary.isEmpty ? nil : salary)
+            let post = try await CircleAPI.createPost(category: category, title: title, content: content, author: author, imageURLs: imageURLs, location: location.isEmpty ? nil : location, salary: salary.isEmpty ? nil : salary, company: company.isEmpty ? nil : company, contact: contact.isEmpty ? nil : contact)
             post.deviceId = CircleAPI.deviceID   // 本地缓存标记「我的帖子」
             modelContext.insert(post)
             try? modelContext.save()
-            DailyPostCounter.increment()         // 计入当日发帖数
+            DailyPostCounter.increment(isWorkPost: category == "工作")  // 计入当日发帖数
             await loadPosts()
         } catch {
-            errorMessage = "发帖失败：\(error.localizedDescription)"
+            errorMessage = Lf("发帖失败：%@", error.localizedDescription)
             showError = true
         }
     }
 
     private func like(_ post: Post) async {
+        AnalyticsService.shared.track("action_like")
         do {
-            let updated = try await CircleAPI.likePost(id: post.id)
+            let (updated, liked) = try await CircleAPI.likePost(id: post.id)
             post.likes = updated.likes
-            post.isLikedByMe = true
+            post.isLikedByMe = liked
             try? modelContext.save()
+            // 「只看我点赞的帖子」列表里取消点赞 → 立即移除
+            if showLikedOnly && !liked {
+                withAnimation {
+                    posts.removeAll { $0.id == post.id }
+                }
+            }
         } catch {
             // 点赞失败静默（离线可容忍）
         }
@@ -345,7 +391,7 @@ struct PostCard: View {
                             .padding(.vertical, 3)
                             .background(categoryColor.opacity(0.15), in: .capsule)
                             .foregroundStyle(categoryColor)
-                        Text(post.author)
+                        Text(L(post.author))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Spacer()
@@ -434,13 +480,13 @@ struct PostCard: View {
                         Button(role: .destructive) {
                             showDeleteConfirm = true
                         } label: {
-                            Label("删除", systemImage: "trash")
+                            Label(L("删除"), systemImage: "trash")
                         }
                     } else {
                         Button(role: .destructive) {
                             showReport = true
                         } label: {
-                            Label("举报", systemImage: "exclamationmark.bubble")
+                            Label(L("举报"), systemImage: "exclamationmark.bubble")
                         }
                     }
                 } label: {
@@ -452,11 +498,11 @@ struct PostCard: View {
                 .menuStyle(.borderlessButton)
                 .fixedSize()
                 Button(action: onLike) {
-                    Label("\(post.likes)", systemImage: "heart")
+                    Label("\(post.likes)", systemImage: post.isLikedByMe ? "heart.fill" : "heart")
                         .font(.caption)
                 }
                 .buttonStyle(.bordered)
-                .tint(.pink)
+                .tint(post.isLikedByMe ? .pink : .gray)
             }
         }
         .padding(12)
@@ -470,13 +516,13 @@ struct PostCard: View {
                 Button(role: .destructive) {
                     showDeleteConfirm = true
                 } label: {
-                    Label("删除", systemImage: "trash")
+                    Label(L("删除"), systemImage: "trash")
                 }
             } else {
                 Button(role: .destructive) {
                     showReport = true
                 } label: {
-                    Label("举报", systemImage: "exclamationmark.bubble")
+                    Label(L("举报"), systemImage: "exclamationmark.bubble")
                 }
             }
         }
@@ -486,22 +532,22 @@ struct PostCard: View {
             }
             Button("取消", role: .cancel) {}
         } message: {
-            Text("删除后无法恢复")
+            Text(L("删除后无法恢复"))
         }
         .confirmationDialog("举报这个帖子？", isPresented: $showReport, titleVisibility: .visible) {
             ForEach(["广告/营销", "人身攻击", "色情低俗", "诈骗信息", "其他"], id: \.self) { reason in
-                Button(reason) {
+                Button(L(reason)) {
                     submitReport(reason)
                 }
             }
             Button("取消", role: .cancel) {}
         } message: {
-            Text("我们会审核处理，请勿恶意举报")
+            Text(L("我们会审核处理，请勿恶意举报"))
         }
         .alert("已提交举报", isPresented: $showReported) {
-            Button("好") {}
+            Button(L("好")) {}
         } message: {
-            Text("感谢反馈，我们会尽快处理")
+            Text(L("感谢反馈，我们会尽快处理"))
         }
     }
 
@@ -527,7 +573,7 @@ struct PickedImage: Identifiable {
 // MARK: - 发帖
 struct NewPostSheet: View {
     let author: String
-    let onPost: (String, String, String, [String], String, String) -> Void
+    let onPost: (String, String, String, [String], String, String, String, String) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var category = "树洞"
@@ -540,6 +586,10 @@ struct NewPostSheet: View {
     @State private var uploadError = false
     @State private var location = ""
     @State private var salary = ""
+    @State private var company = ""
+    @State private var contact = ""
+    @State private var showFieldError = false
+    @State private var fieldErrorMessage = ""
 
     let categories = ["运动", "学习", "搞钱", "教育", "树洞", "工作"]
     private let maxImages = 9
@@ -549,7 +599,7 @@ struct NewPostSheet: View {
             Form {
                 Section {
                     Picker("分类", selection: $category) {
-                        ForEach(categories, id: \.self) { Text($0) }
+                        ForEach(categories, id: \.self) { Text(L($0)) }
                     }
                     .pickerStyle(.segmented)
                 }
@@ -563,21 +613,37 @@ struct NewPostSheet: View {
                         .frame(height: 120)
                 }
 
-                // 工作分类：地区 + 薪资（选填）
+                // 工作分类：公司/联系方式必填 + 地区/薪资选填
                 if category == "工作" {
-                    Section("职位信息（选填）") {
+                    Section {
                         HStack {
-                            Text("地区")
+                            Text(L("公司名称 *"))
+                                .foregroundStyle(.secondary)
+                            TextField("必填", text: $company)
+                                
+                        }
+                        HStack {
+                            Text(L("联系方式 *"))
+                                .foregroundStyle(.secondary)
+                            TextField("手机/微信/邮箱（展示时脱敏）", text: $contact)
+                                
+                        }
+                        HStack {
+                            Text(L("地区"))
                                 .foregroundStyle(.secondary)
                             TextField("如：杭州", text: $location)
-                                .multilineTextAlignment(.trailing)
+                                
                         }
                         HStack {
-                            Text("薪资")
+                            Text(L("薪资"))
                                 .foregroundStyle(.secondary)
                             TextField("如：6-8k/月", text: $salary)
-                                .multilineTextAlignment(.trailing)
+                                
                         }
+                    } header: {
+                        Text(L("职位信息"))
+                    } footer: {
+                        Text(L("为防招聘诈骗，公司名称和联系方式为必填；联系方式展示时会脱敏，正规招聘不会要求先交钱。"))
                     }
                 }
 
@@ -625,23 +691,31 @@ struct NewPostSheet: View {
                 }
 
                 Section {
-                    Text("社区规范：不发广告、不人身攻击、不传播虚假信息。违反将被删除。")
+                    Text(L("社区规范：不发广告、不人身攻击、不传播虚假信息。违反将被删除。"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     if !ProFeatures.circlePostLimit {
                         HStack(spacing: 4) {
-                            Text("今日还可发布 \(DailyPostCounter.remaining()) 次")
-                                .font(.caption)
-                                .foregroundStyle(.orange)
+                            if category == "工作" {
+                                Text("今日还可发布 \(DailyPostCounter.remainingWork()) 条工作帖")
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                            } else {
+                                Text("今日还可发布 \(DailyPostCounter.remaining()) 次")
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                            }
                             Spacer()
                         }
                     }
                 }
             }
-            .navigationTitle("发布帖子")
+            .listStyle(.grouped)
+        .scrollIndicators(.hidden)
+        .navigationTitle("发布帖子")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button(L("取消")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
@@ -650,7 +724,7 @@ struct NewPostSheet: View {
                         if isUploading {
                             ProgressView()
                         } else {
-                            Text("发布")
+                            Text(L("发布"))
                         }
                     }
                     .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || isUploading)
@@ -660,28 +734,53 @@ struct NewPostSheet: View {
                 PhotoPicker(selectedImages: $selectedImages, maxCount: maxImages - selectedImages.count)
             }
             .alert("上传失败", isPresented: $uploadError) {
-                Button("好") {}
+                Button(L("好")) {}
             } message: {
-                Text("图片上传失败，请重试")
+                Text(L("图片上传失败，请重试"))
             }
             .alert("今日发帖已达上限", isPresented: $showLimitAlert) {
-                Button("好") {}
+                Button(L("好")) {}
             } message: {
                 Text("免费用户每天可发布 \(DailyPostCounter.freeDailyLimit) 条。升级 Pro 后可不受限制地发帖。")
+            }
+            .alert("信息不完整", isPresented: $showFieldError) {
+                Button(L("好")) {}
+            } message: {
+                Text(fieldErrorMessage)
             }
         }
     }
 
     private func submit() {
-        // 免费用户每日发帖上限
-        guard DailyPostCounter.canPostToday() else {
-            showLimitAlert = true
-            return
+        // 免费用户每日发帖上限（工作帖单独 1 条）
+        if category == "工作" {
+            guard DailyPostCounter.canPostWorkToday() else {
+                showLimitAlert = true
+                return
+            }
+        } else {
+            guard DailyPostCounter.canPostToday() else {
+                showLimitAlert = true
+                return
+            }
+        }
+        // 工作帖必填校验
+        if category == "工作" {
+            guard !company.trimmingCharacters(in: .whitespaces).isEmpty else {
+                fieldErrorMessage = "请填写公司名称"
+                showFieldError = true
+                return
+            }
+            guard !contact.trimmingCharacters(in: .whitespaces).isEmpty else {
+                fieldErrorMessage = "请填写联系方式（手机/微信/邮箱）"
+                showFieldError = true
+                return
+            }
         }
         let trimmedLocation = location.trimmingCharacters(in: .whitespaces)
         let trimmedSalary = salary.trimmingCharacters(in: .whitespaces)
         guard !selectedImages.isEmpty else {
-            onPost(category, title, content, [], trimmedLocation, trimmedSalary)
+            onPost(category, title, content, [], trimmedLocation, trimmedSalary, company.trimmingCharacters(in: .whitespaces), contact.trimmingCharacters(in: .whitespaces))
             dismiss()
             return
         }
@@ -692,7 +791,7 @@ struct NewPostSheet: View {
                 for picked in selectedImages {
                     urls.append(try await CircleAPI.uploadImage(picked.image))
                 }
-                onPost(category, title, content, urls, trimmedLocation, trimmedSalary)
+                onPost(category, title, content, urls, trimmedLocation, trimmedSalary, company.trimmingCharacters(in: .whitespaces), contact.trimmingCharacters(in: .whitespaces))
                 dismiss()
             } catch {
                 uploadError = true
@@ -784,7 +883,7 @@ struct PostDetailView: View {
                         .padding(.vertical, 4)
                         .background(categoryColor.opacity(0.15), in: .capsule)
                         .foregroundStyle(categoryColor)
-                    Text(post.author)
+                    Text(L(post.author))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     Spacer()
@@ -798,27 +897,58 @@ struct PostDetailView: View {
                     .font(.title2)
                     .fontWeight(.bold)
 
-                // 工作帖：地区 + 薪资
+                // 工作帖：公司 + 未验证 + 地区/薪资 + 联系方式
                 if post.category == "工作" {
-                    HStack(spacing: 8) {
-                        if let location = post.location, !location.isEmpty {
-                            Label(location, systemImage: "mappin.and.ellipse")
-                                .font(.caption)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
-                                .background(.orange.opacity(0.15), in: .capsule)
-                                .foregroundStyle(.orange)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 8) {
+                            if let company = post.company, !company.isEmpty {
+                                Label(company, systemImage: "building.2.fill")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(.orange.opacity(0.15), in: .capsule)
+                                    .foregroundStyle(.orange)
+                            }
+                            // 未验证标签（阶段 2 做人工验证后变为已验证）
+                            Text(L("未验证"))
+                                .font(.caption2)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(.gray.opacity(0.15), in: .capsule)
+                                .foregroundStyle(.secondary)
+                            Spacer()
                         }
-                        if let salary = post.salary, !salary.isEmpty {
-                            Label(salary, systemImage: "yensign.circle")
+                        HStack(spacing: 8) {
+                            if let location = post.location, !location.isEmpty {
+                                Label(location, systemImage: "mappin.and.ellipse")
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                            }
+                            if let salary = post.salary, !salary.isEmpty {
+                                Label(salary, systemImage: "yensign.circle")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(.orange)
+                            }
+                        }
+                        if let contact = post.contactMasked, !contact.isEmpty {
+                            Label("联系：\(contact)", systemImage: "phone.fill")
                                 .font(.caption)
-                                .fontWeight(.semibold)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 4)
-                                .background(.orange.opacity(0.15), in: .capsule)
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(.blue)
                         }
                     }
+                }
+
+                // 防骗横幅（工作帖）
+                if post.category == "工作" {
+                    Label(L("凡要求先交押金、培训费、垫资的都是骗局；本平台不保证招聘信息真实性"), systemImage: "exclamationmark.shield.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.red.opacity(0.08), in: .rect(cornerRadius: 8))
                 }
 
                 Divider()
@@ -897,7 +1027,7 @@ struct PostDetailView: View {
                 }
 
                 if comments.isEmpty && !isLoadingComments {
-                    Text("还没有评论，说点什么鼓励一下 Ta 吧")
+                    Text(L("还没有评论，说点什么鼓励一下 Ta 吧"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.vertical, 8)
@@ -905,7 +1035,7 @@ struct PostDetailView: View {
                     ForEach(comments) { comment in
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
-                                Text(comment.author)
+                                Text(L(comment.author))
                                     .font(.caption)
                                     .fontWeight(.semibold)
                                     .foregroundStyle(.orange)
@@ -922,7 +1052,7 @@ struct PostDetailView: View {
                             Button(role: .destructive) {
                                 reportComment(comment)
                             } label: {
-                                Label("举报", systemImage: "exclamationmark.bubble")
+                                Label(L("举报"), systemImage: "exclamationmark.bubble")
                             }
                         }
                         Divider()
@@ -938,7 +1068,7 @@ struct PostDetailView: View {
                                 if isLoadingMoreComments {
                                     ProgressView()
                                 } else {
-                                    Text("加载更多评论")
+                                    Text(L("加载更多评论"))
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -982,29 +1112,31 @@ struct PostDetailView: View {
 
                 Spacer(minLength: 24)
 
-                // 点赞
+                // 点赞（toggle：再点取消）
                 HStack {
                     Spacer()
                     Button(action: onLike) {
-                        Label("\(post.likes) 人觉得暖心", systemImage: "heart.fill")
+                        Label("\(post.likes) 人觉得暖心", systemImage: post.isLikedByMe ? "heart.fill" : "heart")
                             .font(.subheadline)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(.pink)
+                    .tint(post.isLikedByMe ? .pink : .gray)
                     Spacer()
                 }
             }
             .padding()
         }
+        .listStyle(.grouped)
+        .scrollIndicators(.hidden)
         .navigationTitle("帖子详情")
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await loadComments()
         }
         .alert("评论失败", isPresented: $showCommentError) {
-            Button("好") {}
+            Button(L("好")) {}
         } message: {
             Text(commentError)
         }
