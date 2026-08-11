@@ -15,11 +15,11 @@ struct PaywallView: View {
                     .foregroundStyle(.orange)
                     .padding(.top, 30)
 
-                Text("升级 Survival Pro")
+                Text(L("升级 Survival Pro"))
                     .font(.title2)
                     .fontWeight(.bold)
 
-                Text("一次性买断，永久解锁全部高级功能")
+                Text(L("一次性买断，永久解锁全部高级功能"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
@@ -50,7 +50,7 @@ struct PaywallView: View {
                     .buttonStyle(.borderedProminent)
                     .tint(.orange)
                 } else {
-                    Text("内购即将上线，敬请期待")
+                    Text(L("内购即将上线，敬请期待"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
@@ -58,13 +58,13 @@ struct PaywallView: View {
                         .background(Color(.secondarySystemBackground), in: .capsule)
                 }
 
-                Button("恢复购买") {
+                Button(L("恢复购买")) {
                     Task { await store.restore() }
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-                Text("付款将通过与 Apple 关联的 iTunes 账户收取。确认购买前，此 App 将显示价格和条款。")
+                Text(L("付款将通过与 Apple 关联的 iTunes 账户收取。确认购买前，此 App 将显示价格和条款。"))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                     .multilineTextAlignment(.center)
@@ -75,7 +75,7 @@ struct PaywallView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("关闭") { dismiss() }
+                    Button(L("关闭")) { dismiss() }
                 }
             }
         }
@@ -86,10 +86,10 @@ struct PaywallView: View {
             Image(systemName: "checkmark.circle.fill")
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(L(title))
                     .font(.subheadline)
                     .fontWeight(.medium)
-                Text(subtitle)
+                Text(L(subtitle))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
