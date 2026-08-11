@@ -562,13 +562,15 @@ struct TimelineComparisonChart: View {
         return min(max(last + 6, 12), total)
     }
 
-    /// 数据点：展示范围超大（>200 个月）时按 2 个月步长抽样减密，曲线形状不变、绘制更快
+    /// 数据点：只取 X 轴范围内（id <= xMax）的点，避免曲线超出图表右边缘；
+    /// 展示范围超大（>200 个月）时按 2 个月步长抽样减密，曲线形状不变、绘制更快
     private var currentPoints: [MonthSnapshot] { sampled(current.timeline) }
     private var simulatedPoints: [MonthSnapshot] { sampled(simulated.timeline) }
 
     private func sampled(_ timeline: [MonthSnapshot]) -> [MonthSnapshot] {
-        guard xMax > 200 else { return timeline }
-        return stride(from: 0, to: timeline.count, by: 2).map { timeline[$0] }
+        let inRange = timeline.filter { $0.id <= xMax }
+        guard xMax > 200 else { return inRange }
+        return stride(from: 0, to: inRange.count, by: 2).map { inRange[$0] }
     }
 
     var body: some View {
