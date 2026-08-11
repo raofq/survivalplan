@@ -1,0 +1,45 @@
+name: Upload to TestFlight
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare App Store Connect API Key
+        env:
+          ASC_API_KEY_B64: ${{ secrets.ASC_API_KEY_B64 }}
+          API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+        run: |
+          mkdir -p ~/private_keys
+          echo "$ASC_API_KEY_B64" | base64 -d > ~/private_keys/AuthKey_${API_KEY_ID}.p8
+          chmod 600 ~/private_keys/AuthKey_${API_KEY_ID}.p8
+
+      - name: Archive (Automatic Signing via API Key)
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          xcodebuild archive \
+            -project "生存计划.xcodeproj" \
+            -scheme "生存计划" \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/SurvivalPlan.xcarchive" \
+            -allowProvisioningUpdates \
+            CODE_SIGN_STYLE=Automatic
+
+      - name: Upload to App Store Connect (TestFlight)
+        env:
+          API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          xcrun altool --upload-app \
+            -f "$RUNNER_TEMP/SurvivalPlan.xcarchive" \
+            -t ios \
+            --apiKey "$API_KEY_ID" \
+            --apiIssuer "$ISSUER_ID" \
+            --verbose
