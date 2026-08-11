@@ -9,9 +9,14 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var expenses: [ExpenseRecord]
     @State private var showResetConfirmation = false
+    @State private var showProfileEditor = false
+    @State private var showBudgetAdjust = false
+    @State private var showDataManage = false
+    @State private var showAbout = false
     @State private var showExportSuccess = false
     @State private var selectedSection: SettingsSection?
     @State private var localProfile: UserProfile
+    @State private var languageSelection: String = LanguageManager.current
 
     init(profile: UserProfile) {
         self.profile = profile
@@ -36,26 +41,42 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            List {
+        // 注意：不建内层 NavigationStack——iOS 17.4 嵌套栈内层 NavigationLink push 失效（真机）
+        // 直接使用外层（Dashboard）导航栈
+        List {
+                // 语言设置
+                Section {
+                    Picker(selection: $languageSelection, label: Label(L("语言 / Language"), systemImage: "globe")) {
+                        Text(L("跟随系统 / System")).tag("system")
+                        Text(L("简体中文")).tag("zh-Hans")
+                        Text("English").tag("en")
+                    }
+                    .pickerStyle(.menu)
+                    .onChange(of: languageSelection) { _, newValue in
+                        LanguageManager.set(newValue)
+                        NotificationCenter.default.post(name: .languageDidChange, object: nil)
+                    }
+                } header: {
+                    Text(L("语言 / Language"))
+                }
                 // 快速概览
                 Section {
                     VStack(spacing: 4) {
                         HStack {
-                            Text("可用资金")
+                            Text(L("可用资金"))
                             Spacer()
                             Text(formatCurrency(profile.savings + profile.investments))
                                 .fontWeight(.bold)
                                 .foregroundStyle(.blue)
                         }
                         HStack {
-                            Text("月支出")
+                            Text(L("月支出"))
                             Spacer()
                             Text(formatCurrency(monthlyExpenses))
                                 .foregroundStyle(.red)
                         }
                         HStack {
-                            Text("月收入")
+                            Text(L("月收入"))
                             Spacer()
                             Text(formatCurrency(monthlyIncome))
                                 .foregroundStyle(.green)
@@ -63,7 +84,7 @@ struct SettingsView: View {
                     }
                     .font(.subheadline)
                 } header: {
-                    Label("财务快照", systemImage: "chart.pie")
+                    Label(L("财务快照"), systemImage: "chart.pie")
                 }
 
                 // 分区导航
@@ -73,11 +94,11 @@ struct SettingsView: View {
                         StoreManager.shared.showPaywall = true
                     } label: {
                         HStack {
-                            Label("升级 Pro", systemImage: ProFeatures.isPro ? "crown.fill" : "crown")
+                            Label(L("升级 Pro"), systemImage: ProFeatures.isPro ? "crown.fill" : "crown")
                                 .foregroundStyle(.orange)
                             Spacer()
                             if ProFeatures.isPro {
-                                Text("已解锁")
+                                Text(L("已解锁"))
                                     .font(.caption)
                                     .foregroundStyle(.green)
                             } else {
@@ -86,29 +107,25 @@ struct SettingsView: View {
                         }
                     }
 
-                    NavigationLink {
-                        ProfileEditorView(profile: profile)
-                    } label: {
-                        Label("个人信息", systemImage: "person.fill")
+                    Button { showProfileEditor = true } label: {
+                        Label(L("个人信息"), systemImage: "person.fill")
                     }
+                    .buttonStyle(.plain)
 
-                    NavigationLink {
-                        BudgetAdjustView(profile: profile)
-                    } label: {
-                        Label("预算调整", systemImage: "slider.horizontal.3")
+                    Button { showBudgetAdjust = true } label: {
+                        Label(L("预算调整"), systemImage: "slider.horizontal.3")
                     }
+                    .buttonStyle(.plain)
 
-                    NavigationLink {
-                        DataManageView(profile: profile, expenses: expenses)
-                    } label: {
-                        Label("数据管理", systemImage: "externaldrive.fill")
+                    Button { showDataManage = true } label: {
+                        Label(L("数据管理"), systemImage: "externaldrive.fill")
                     }
+                    .buttonStyle(.plain)
 
-                    NavigationLink {
-                        AboutView()
-                    } label: {
-                        Label("关于", systemImage: "info.circle.fill")
+                    Button { showAbout = true } label: {
+                        Label(L("关于"), systemImage: "info.circle.fill")
                     }
+                    .buttonStyle(.plain)
                 }
 
                 // 下方危险操作
@@ -116,26 +133,30 @@ struct SettingsView: View {
                     Button(role: .destructive) {
                         showResetConfirmation = true
                     } label: {
-                        Label("重置所有数据", systemImage: "trash")
+                        Label(L("重置所有数据"), systemImage: "trash")
                     }
                 } footer: {
-                    Text("重置将删除所有数据，此操作不可撤销")
+                    Text(L("重置将删除所有数据，此操作不可撤销"))
                 }
             }
-            .navigationTitle("设置")
+            .sheet(isPresented: $showProfileEditor) { NavigationStack { ProfileEditorView(profile: profile) } }
+            .sheet(isPresented: $showBudgetAdjust) { NavigationStack { BudgetAdjustView(profile: profile) } }
+            .sheet(isPresented: $showDataManage) { NavigationStack { DataManageView(profile: profile, expenses: expenses) } }
+            .sheet(isPresented: $showAbout) { NavigationStack { AboutView() } }
+            .listStyle(.insetGrouped)
+        .navigationTitle("设置")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") { dismiss() }
+                    Button(L("完成")) { dismiss() }
                 }
             }
             .alert("确认重置", isPresented: $showResetConfirmation) {
                 Button("取消", role: .cancel) {}
                 Button("重置", role: .destructive) { resetAllData() }
             } message: {
-                Text("将删除所有用户数据和支出记录，此操作不可撤销。")
+                Text(L("将删除所有用户数据和支出记录，此操作不可撤销。"))
             }
-        }
     }
 
     private var monthlyIncome: Double {
@@ -158,11 +179,8 @@ struct SettingsView: View {
     }
 
     private func formatCurrency(_ value: Double) -> String {
-        let f = NumberFormatter()
-        f.numberStyle = .currency
-        f.currencySymbol = "¥"
-        f.maximumFractionDigits = 0
-        return f.string(from: NSNumber(value: value)) ?? "¥0"
+        return money(value)
+
     }
 
     private func resetAllData() {
@@ -182,11 +200,11 @@ struct ProfileEditorView: View {
     let profile: UserProfile
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @State private var local: UserProfile
+    @State private var local: UserProfileDraft
 
     init(profile: UserProfile) {
         self.profile = profile
-        _local = State(initialValue: profile)
+        _local = State(initialValue: UserProfileDraft(profile: profile))
     }
 
     var body: some View {
@@ -210,9 +228,9 @@ struct ProfileEditorView: View {
                         .foregroundStyle(.secondary)
                 }
             } header: {
-                Text("失业情况")
+                Text(L("失业情况"))
             } footer: {
-                Text("记录失业起始日，看板会显示已坚持天数")
+                Text(L("记录失业起始日，看板会显示已坚持天数"))
             }
 
             Section("收入来源") {
@@ -220,9 +238,9 @@ struct ProfileEditorView: View {
                 if local.hasUnemploymentBenefit {
                     labeledField("每月金额", value: $local.unemploymentBenefit, suffix: "元/月")
                     Picker("还可领取", selection: $local.unemploymentBenefitMonths) {
-                        Text("不限").tag(0)
+                        Text(L("不限")).tag(0)
                         ForEach([1, 2, 3, 6, 9, 12, 18, 24], id: \.self) { m in
-                            Text("\(m)个月").tag(m)
+                            Text(Lf("%lld个月", m)).tag(m)
                         }
                     }
                 }
@@ -240,13 +258,13 @@ struct ProfileEditorView: View {
                 Button {
                     local.familyBaseLivingCost = local.estimatedBaseLivingCost
                 } label: {
-                    Label("按成员数估算（¥\(Int(local.estimatedBaseLivingCost))/月）", systemImage: "wand.and.stars")
+                    Label("按成员数估算（¥\(Int(local.estimatedBaseLivingCost.rounded()))/月）", systemImage: "wand.and.stars")
                         .font(.caption)
                 }
             } header: {
-                Text("生存底线")
+                Text(L("生存底线"))
             } footer: {
-                Text("一家人每月最少要花多少（吃饭+日用品）。模拟器「目标反推」会用这个数字计算底线")
+                Text(L("一家人每月最少要花多少（吃饭+日用品）。模拟器「目标反推」会用这个数字计算底线"))
             }
 
             Section("积蓄") {
@@ -267,18 +285,18 @@ struct ProfileEditorView: View {
                 labeledField("房贷", value: $local.mortgage, suffix: "元/月")
                 if local.mortgage > 0 {
                     Picker("剩余还款", selection: $local.mortgageRemainingMonths) {
-                        Text("不限").tag(0)
+                        Text(L("不限")).tag(0)
                         ForEach([12, 24, 36, 60, 84, 120, 180, 240, 300, 360], id: \.self) { m in
-                            Text("\(m / 12)年").tag(m)
+                            Text(Lf("%lld年", m / 12)).tag(m)
                         }
                     }
                 }
                 labeledField("车贷", value: $local.carLoan, suffix: "元/月")
                 if local.carLoan > 0 {
                     Picker("剩余还款", selection: $local.carLoanRemainingMonths) {
-                        Text("不限").tag(0)
+                        Text(L("不限")).tag(0)
                         ForEach([6, 12, 18, 24, 36, 48, 60], id: \.self) { m in
-                            Text("\(m)个月").tag(m)
+                            Text(Lf("%lld个月", m)).tag(m)
                         }
                     }
                 }
@@ -305,10 +323,15 @@ struct ProfileEditorView: View {
             }
 
         }
+        .listStyle(.insetGrouped)
         .navigationTitle("个人信息")
+        .hideKeyboardOnTap()
         .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button(L("取消")) { dismiss() }
+            }
             ToolbarItem(placement: .confirmationAction) {
-                Button("保存") {
+                Button(L("保存")) {
                     save()
                     withAnimation { showSavedToast = true }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
@@ -319,7 +342,7 @@ struct ProfileEditorView: View {
         }
         .overlay(alignment: .bottom) {
             if showSavedToast {
-                Text("已保存 ✓")
+                Text(L("已保存 ✓"))
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .padding(.horizontal, 20)
@@ -335,55 +358,12 @@ struct ProfileEditorView: View {
     @State private var showSavedToast = false
 
     private func save() {
-        profile.hasUnemploymentBenefit = local.hasUnemploymentBenefit
-        profile.unemploymentBenefit = local.unemploymentBenefit
-        profile.unemploymentBenefitMonths = local.unemploymentBenefitMonths
-        profile.hasPartTimeIncome = local.hasPartTimeIncome
-        profile.partTimeIncome = local.partTimeIncome
-        profile.spouseIncome = local.spouseIncome
-        profile.otherIncome = local.otherIncome
-        profile.unemploymentDate = local.unemploymentDate
-        profile.expectedMonthlySalary = local.expectedMonthlySalary
-        profile.familyBaseLivingCost = local.familyBaseLivingCost
-        profile.savings = local.savings
-        profile.hasInvestments = local.hasInvestments
-        profile.investments = local.investments
-        profile.hasSpouse = local.hasSpouse
-        profile.childrenCount = local.childrenCount
-        profile.needsSupportElders = local.needsSupportElders
-        profile.mortgage = local.mortgage
-        profile.mortgageRemainingMonths = local.mortgageRemainingMonths
-        profile.carLoan = local.carLoan
-        profile.carLoanRemainingMonths = local.carLoanRemainingMonths
-        profile.propertyFee = local.propertyFee
-        profile.utilities = local.utilities
-        profile.internet = local.internet
-        profile.phone = local.phone
-        profile.insurance = local.insurance
-        profile.foodBudget = local.foodBudget
-        profile.transportBudget = local.transportBudget
-        profile.medicalBudget = local.medicalBudget
-        profile.educationBudget = local.educationBudget
-        profile.socialBudget = local.socialBudget
-        profile.shoppingBudget = local.shoppingBudget
-        profile.creditCardDebt = local.creditCardDebt
-        profile.onlineLoanDebt = local.onlineLoanDebt
-        profile.privateLoanDebt = local.privateLoanDebt
+        local.apply(to: profile)
         try? modelContext.save()
     }
 
     private func labeledField(_ label: String, value: Binding<Double>, suffix: String) -> some View {
-        HStack {
-            Text(label)
-            Spacer()
-            TextField("金额", value: value, format: .number)
-                .keyboardType(.decimalPad)
-                .multilineTextAlignment(.trailing)
-                .frame(width: 80)
-            Text(suffix)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
+        MoneyInputRow(label: label, value: value, suffix: suffix)
     }
 }
 
@@ -431,33 +411,33 @@ struct BudgetAdjustView: View {
 
             Section {
                 HStack {
-                    Text("调整前月总计")
+                    Text(L("调整前月总计"))
                     Spacer()
-                    Text("¥\(Int(totalBefore))")
+                    Text("\(money(totalBefore))")
                         .foregroundStyle(.secondary)
                 }
                 HStack {
-                    Text("调整后月总计")
+                    Text(L("调整后月总计"))
                     Spacer()
-                    Text("¥\(Int(totalAfter))")
+                    Text("\(money(totalAfter))")
                         .fontWeight(.bold)
                         .foregroundStyle(totalAfter <= totalBefore ? .green : .red)
                 }
                 if totalAfter < totalBefore {
                     HStack {
-                        Text("每月节省")
+                        Text(L("每月节省"))
                         Spacer()
-                        Text("¥\(Int(totalBefore - totalAfter))")
+                        Text(money(totalBefore - totalAfter))
                             .fontWeight(.bold)
                             .foregroundStyle(.green)
                     }
                 }
             } header: {
-                Text("汇总")
+                Text(L("汇总"))
             }
 
             Section {
-                Button("保存调整") {
+                Button(L("保存调整")) {
                     save()
                     dismiss()
                 }
@@ -465,24 +445,17 @@ struct BudgetAdjustView: View {
                 .fontWeight(.semibold)
             }
         }
+        .listStyle(.insetGrouped)
         .navigationTitle("预算调整")
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button(L("完成")) { dismiss() }
+            }
+        }
     }
 
     private func budgetRow(label: String, value: Binding<Double>, icon: String) -> some View {
-        HStack {
-            Image(systemName: icon)
-                .foregroundStyle(.blue)
-                .frame(width: 24)
-            Text(label)
-            Spacer()
-            TextField("金额", value: value, format: .number)
-                .keyboardType(.decimalPad)
-                .multilineTextAlignment(.trailing)
-                .frame(width: 80)
-            Text("元/月")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
+        BudgetInputRow(label: label, value: value, icon: icon)
     }
 
     private func save() {
@@ -501,6 +474,7 @@ struct DataManageView: View {
     let profile: UserProfile
     let expenses: [ExpenseRecord]
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     @Query private var workouts: [WorkoutRecord]
     @Query private var studies: [StudyRecord]
     @State private var showExportSuccess = false
@@ -512,12 +486,14 @@ struct DataManageView: View {
     @State private var showFileExporter = false
     @State private var showFileImporter = false
     @State private var showProLock = false
+    @State private var showWorkoutList = false
+    @State private var showStudyList = false
 
     var body: some View {
         Form {
             Section {
                 HStack {
-                    Text("总记录数")
+                    Text(L("总记录数"))
                     Spacer()
                     Text("\(expenses.count) 条")
                         .foregroundStyle(.secondary)
@@ -526,17 +502,17 @@ struct DataManageView: View {
                 Button {
                     exportCSV()
                 } label: {
-                    Label("导出 CSV（基础）", systemImage: "square.and.arrow.up")
+                    Label(L("导出 CSV（基础）"), systemImage: "square.and.arrow.up")
                 }
                 .disabled(expenses.isEmpty)
 
                 if showExportSuccess {
-                    Text("CSV 已生成，请分享到文件或邮件")
+                    Text(L("CSV 已生成，请分享到文件或邮件"))
                         .font(.caption)
                         .foregroundStyle(.green)
                 }
             } header: {
-                Text("支出记录")
+                Text(L("支出记录"))
             }
 
             // Pro：JSON 备份 / 恢复
@@ -552,51 +528,57 @@ struct DataManageView: View {
                         showRestoreResult = true
                     }
                 } label: {
-                    Label("备份到文件（JSON）", systemImage: ProFeatures.fullExport ? "externaldrive.fill" : "lock.fill")
+                    Label(L("备份到文件（JSON）"), systemImage: ProFeatures.fullExport ? "externaldrive.fill" : "lock.fill")
                 }
 
                 Button {
                     guard ProFeatures.fullExport else { showProLock = true; return }
                     showFileImporter = true
                 } label: {
-                    Label("从文件恢复（JSON）", systemImage: ProFeatures.fullExport ? "arrow.down.doc.fill" : "lock.fill")
+                    Label(L("从文件恢复（JSON）"), systemImage: ProFeatures.fullExport ? "arrow.down.doc.fill" : "lock.fill")
                 }
 
                 if showBackupSuccess {
-                    Text("备份已生成，请选择保存位置")
+                    Text(L("备份已生成，请选择保存位置"))
                         .font(.caption)
                         .foregroundStyle(.green)
                 }
             } header: {
                 HStack(spacing: 6) {
-                    Text("完整备份")
+                    Text(L("完整备份"))
                     if !ProFeatures.fullExport {
                         ProLock.badge()
                     }
                 }
             } footer: {
-                Text("备份包含个人信息、支出、打卡和学习记录；恢复会覆盖当前数据（圈子帖子除外）。")
+                Text(L("备份包含个人信息、支出、打卡和学习记录；恢复会覆盖当前数据（圈子帖子除外）。"))
             }
 
             Section {
-                NavigationLink {
-                    WorkoutListView()
-                } label: {
-                    Label("运动打卡", systemImage: "figure.walk")
+                Button { showWorkoutList = true } label: {
+                    Label(L("运动打卡"), systemImage: "figure.walk")
                 }
+                .buttonStyle(.plain)
 
-                NavigationLink {
-                    StudyListView()
-                } label: {
-                    Label("学习记录", systemImage: "book.fill")
+                Button { showStudyList = true } label: {
+                    Label(L("学习记录"), systemImage: "book.fill")
                 }
+                .buttonStyle(.plain)
             } header: {
-                Text("模块管理")
+                Text(L("模块管理"))
             } footer: {
-                Text("新模块正在开发中，欢迎反馈建议")
+                Text(L("新模块正在开发中，欢迎反馈建议"))
             }
         }
+        .listStyle(.insetGrouped)
         .navigationTitle("数据管理")
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button(L("完成")) { dismiss() }
+            }
+        }
+        .sheet(isPresented: $showWorkoutList) { NavigationStack { WorkoutListView() } }
+        .sheet(isPresented: $showStudyList) { NavigationStack { StudyListView() } }
         .fileExporter(isPresented: $showFileExporter, document: backupDocument, contentType: .json, defaultFilename: "survival_plan_backup") { result in
             if case .success = result {
                 showBackupSuccess = true
@@ -620,15 +602,15 @@ struct DataManageView: View {
             }
             Button("取消", role: .cancel) {}
         } message: {
-            Text("恢复将覆盖当前的支出、打卡和学习记录，此操作不可撤销。")
+            Text(L("恢复将覆盖当前的支出、打卡和学习记录，此操作不可撤销。"))
         }
         .alert(restoreTitle, isPresented: $showRestoreResult) {
-            Button("好") {}
+            Button(L("好")) {}
         } message: {
             Text(restoreMessage)
         }
         .alert("Pro 专属功能", isPresented: $showProLock) {
-            Button("去解锁") {
+            Button(L("去解锁")) {
                 StoreManager.shared.showPaywall = true
             }
             Button("好", role: .cancel) {}
@@ -693,20 +675,21 @@ struct BackupFileDocument: FileDocument {
 struct WorkoutListView: View {
     @Query(sort: \WorkoutRecord.date, order: .reverse) private var records: [WorkoutRecord]
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         List {
             Section {
                 HStack(spacing: 0) {
                     StatItem(value: "\(records.count)", label: "总次数", color: .blue)
-                    StatItem(value: "\(records.reduce(0) { $0 + $1.duration })分", label: "总时长", color: .green)
+                    StatItem(value: "\(records.reduce(0) { $0 + $1.duration })" + L("分"), label: "总时长", color: .green)
                     StatItem(value: "\(streakDays)", label: "连续天数", color: .orange)
                 }
             }
 
             Section {
                 if records.isEmpty {
-                    Text("还没有运动记录，去「圈子 → 运动」打个卡吧")
+                    Text(L("还没有运动记录，去「圈子 → 运动」打个卡吧"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
@@ -744,10 +727,16 @@ struct WorkoutListView: View {
                     }
                 }
             } header: {
-                Text("记录")
+                Text(L("记录"))
             }
         }
+        .listStyle(.insetGrouped)
         .navigationTitle("运动打卡")
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button(L("完成")) { dismiss() }
+            }
+        }
     }
 
     private var streakDays: Int {
@@ -766,20 +755,21 @@ struct WorkoutListView: View {
 struct StudyListView: View {
     @Query(sort: \StudyRecord.date, order: .reverse) private var records: [StudyRecord]
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         List {
             Section {
                 HStack(spacing: 0) {
                     StatItem(value: "\(records.count)", label: "总次数", color: .blue)
-                    StatItem(value: "\(records.reduce(0) { $0 + $1.duration })分", label: "总时长", color: .green)
+                    StatItem(value: "\(records.reduce(0) { $0 + $1.duration })" + L("分"), label: "总时长", color: .green)
                     StatItem(value: "\(Set(records.map { $0.skill }).count)", label: "技能数", color: .purple)
                 }
             }
 
             Section {
                 if records.isEmpty {
-                    Text("还没有学习记录，去「圈子 → 学习」充充电吧")
+                    Text(L("还没有学习记录，去「圈子 → 学习」充充电吧"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
@@ -817,15 +807,23 @@ struct StudyListView: View {
                     }
                 }
             } header: {
-                Text("记录")
+                Text(L("记录"))
             }
         }
+        .listStyle(.insetGrouped)
         .navigationTitle("学习记录")
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button(L("完成")) { dismiss() }
+            }
+        }
     }
 }
 
 // MARK: - 关于
 struct AboutView: View {
+    @Environment(\.dismiss) private var dismiss
+
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
     }
@@ -833,63 +831,212 @@ struct AboutView: View {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
     }
 
+    /// 隐私政策 URL：英文界面带 ?lang=en，其余默认中文
+    private var privacyPolicyURL: URL {
+        let base = "https://survivalplan.bbroot.com/privacy"
+        return LanguageManager.isChinese ? URL(string: base)! : URL(string: base + "?lang=en")!
+    }
+
     var body: some View {
         Form {
             Section {
                 HStack {
-                    Text("应用名称")
+                    Text(L("应用名称"))
                     Spacer()
-                    Text("生存计划")
+                    Text(L("生存计划"))
                         .foregroundStyle(.secondary)
                 }
                 HStack {
-                    Text("版本")
+                    Text(L("版本"))
                     Spacer()
                     Text("\(appVersion) (\(appBuild))")
                         .foregroundStyle(.secondary)
                 }
                 HStack {
-                    Text("技术栈")
+                    Text(L("技术栈"))
                     Spacer()
                     Text("SwiftUI + SwiftData")
                         .foregroundStyle(.secondary)
                 }
             } header: {
-                Label("应用信息", systemImage: "apps.ipad")
+                Label(L("应用信息"), systemImage: "apps.ipad")
             }
 
             Section {
-                Text("「生存计划」帮助你在职业空窗期管理财务，知道钱在哪，日子就能过下去。")
+                Text(L("「生存计划」帮助你在职业空窗期管理财务，知道钱在哪，日子就能过下去。"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             } header: {
-                Label("关于", systemImage: "text.alignleft")
+                Label(L("关于"), systemImage: "text.alignleft")
             }
 
             Section {
-                Label("财务数据仅存储在你的设备上", systemImage: "lock.shield.fill")
+                Label(L("财务数据仅存储在你的设备上"), systemImage: "lock.shield.fill")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                Label("圈子内容会上传到社区服务器", systemImage: "arrow.up.doc.fill")
+                Label(L("圈子内容会上传到社区服务器"), systemImage: "arrow.up.doc.fill")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                Link(destination: privacyPolicyURL) {
+                    Label(L("隐私政策"), systemImage: "doc.text.fill")
+                }
             } header: {
-                Label("隐私", systemImage: "hand.raised.fill")
+                Label(L("隐私"), systemImage: "hand.raised.fill")
             } footer: {
-                Text("记账、预算、打卡数据通过 SwiftData 本地存储，不离开设备。圈子模块的帖子、评论、点赞会发送到社区服务器（用于多人互助），不包含你的姓名等真实身份信息。")
+                Text(L("记账、预算、打卡数据通过 SwiftData 本地存储，不离开设备。圈子模块的帖子、评论、点赞会发送到社区服务器（用于多人互助），不包含你的姓名等真实身份信息。"))
             }
 
             Section {
                 Link(destination: URL(string: "https://github.com/raofq/survivalplan/issues")!) {
-                    Label("反馈与建议", systemImage: "envelope.fill")
+                    Label(L("反馈与建议"), systemImage: "envelope.fill")
                 }
                 Link(destination: URL(string: "https://github.com/raofq/survivalplan")!) {
-                    Label("GitHub 仓库", systemImage: "chevron.left.forwardslash.chevron.right")
+                    Label(L("GitHub 仓库"), systemImage: "chevron.left.forwardslash.chevron.right")
                 }
             } header: {
-                Label("链接", systemImage: "globe")
+                Label(L("链接"), systemImage: "globe")
             }
         }
+        .listStyle(.insetGrouped)
         .navigationTitle("关于")
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button(L("完成")) { dismiss() }
+            }
+        }
+    }
+}
+
+// MARK: - 整行可点击聚焦的输入行（点 label/空白也能聚焦 TextField，解决点击不生效）
+struct MoneyInputRow: View {
+    let label: String
+    @Binding var value: Double
+    let suffix: String
+    @State private var text: String = ""
+    @State private var syncing = false   // 防重入：切断 onChange 双向同步死循环（崩溃日志 #3）
+
+    var body: some View {
+        HStack {
+            Text(L(label))
+            Spacer()
+            SafeMoneyField(text: $text, placeholder: L("金额"))
+                .frame(width: 80)
+                .onChange(of: text) { _, new in
+                    guard !syncing else { return }
+                    syncing = true
+                    value = Double(new.replacingOccurrences(of: ",", with: "")) ?? 0
+                    syncing = false
+                }
+            Text(L(suffix))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.leading, 8)   // 数字与单位拉开距离
+        }
+        .onAppear {
+            if text.isEmpty { text = Self.fmt(value) }
+        }
+        .onChange(of: value) { _, new in
+            guard !syncing else { return }
+            let f = Self.fmt(new)
+            if text != f {
+                syncing = true
+                text = f
+                syncing = false
+            }
+        }
+    }
+
+    static func fmt(_ v: Double) -> String {
+        v == 0 ? "" : String(format: "%.2f", v).replacingOccurrences(of: ".00", with: "")
+    }
+}
+
+struct BudgetInputRow: View {
+    let label: String
+    @Binding var value: Double
+    let icon: String
+    @State private var text: String = ""
+    @State private var syncing = false
+
+    var body: some View {
+        HStack {
+            Image(systemName: icon)
+                .foregroundStyle(.blue)
+                .frame(width: 24)
+            Text(L(label))
+            Spacer()
+            SafeMoneyField(text: $text, placeholder: L("金额"))
+                .frame(width: 80)
+                .onChange(of: text) { _, new in
+                    guard !syncing else { return }
+                    syncing = true
+                    value = Double(new.replacingOccurrences(of: ",", with: "")) ?? 0
+                    syncing = false
+                }
+            Text(L("元/月"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.leading, 8)   // 数字与单位拉开距离
+        }
+        .onAppear {
+            if text.isEmpty { text = Self.fmt(value) }
+        }
+        .onChange(of: value) { _, new in
+            guard !syncing else { return }
+            let f = Self.fmt(new)
+            if text != f {
+                syncing = true
+                text = f
+                syncing = false
+            }
+        }
+    }
+
+    static func fmt(_ v: Double) -> String {
+        v == 0 ? "" : String(format: "%.2f", v).replacingOccurrences(of: ".00", with: "")
+    }
+}
+
+
+
+
+
+// MARK: - UIKit 安全金额输入（iOS 17.4 真机 SwiftUI TextField 死锁 bug 家族：
+// UIFieldEditor 布局循环 / undoManager 无限递归 / AttributeGraph 更新循环——统一用 UITextField 桥接绕开）
+final class SafeTextField: UITextField {
+    override var undoManager: UndoManager? { nil }   // 切断 undoManager 无限递归（崩溃 #4）
+}
+
+struct SafeMoneyField: UIViewRepresentable {
+    @Binding var text: String
+    let placeholder: String
+    var alignment: NSTextAlignment = .right   // 默认右对齐（行内金额）；快速记账用 .left 与备注一致
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeUIView(context: Context) -> SafeTextField {
+        let tf = SafeTextField()
+        tf.keyboardType = .decimalPad
+        tf.textAlignment = alignment
+        tf.placeholder = placeholder
+        tf.font = .systemFont(ofSize: 17)
+        tf.addTarget(context.coordinator, action: #selector(Coordinator.textChanged(_:)), for: .editingChanged)
+        return tf
+    }
+
+    func updateUIView(_ tf: SafeTextField, context: Context) {
+        tf.placeholder = placeholder   // 语言切换后更新提示词
+        tf.textAlignment = alignment   // Form 可能重置对齐——每次更新强制
+        if tf.text != text && !tf.isFirstResponder {
+            tf.text = text
+        }
+    }
+
+    class Coordinator: NSObject {
+        let parent: SafeMoneyField
+        init(_ p: SafeMoneyField) { parent = p }
+        @objc func textChanged(_ tf: UITextField) {
+            parent.text = tf.text ?? ""
+        }
     }
 }
