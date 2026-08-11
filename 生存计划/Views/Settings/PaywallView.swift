@@ -64,6 +64,14 @@ struct PaywallView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
+                if let err = store.lastError {
+                    Text(err)
+                        .font(.caption2)
+                        .foregroundStyle(.red)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 20)
+                }
+
                 Text(L("付款将通过与 Apple 关联的 iTunes 账户收取。确认购买前，此 App 将显示价格和条款。"))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
