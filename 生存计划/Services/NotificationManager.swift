@@ -24,15 +24,15 @@ enum NotificationManager {
         
         var body: String
         if report.monthsCanSurvive < 3 {
-            body = "⚠️ 资金仅够维持 \(Int(report.monthsCanSurvive)) 个月！今日预算 ¥\(Int(report.dailyBudget))"
+            body = Lf("⚠️ 资金仅够维持 %lld 个月！今日预算 %@", Int(report.monthsCanSurvive), money(report.dailyBudget))
         } else if report.isWarning {
-            body = "资金可撑 \(Int(report.monthsCanSurvive)) 个月，今日预算 ¥\(Int(report.dailyBudget))"
+            body = Lf("资金可撑 %lld 个月，今日预算 %@", Int(report.monthsCanSurvive), money(report.dailyBudget))
         } else {
-            body = "今日预算 ¥\(Int(report.dailyBudget))，记得记账"
+            body = Lf("今日预算 %@，记得记账", money(report.dailyBudget))
         }
         
         let content = UNMutableNotificationContent()
-        content.title = "生存计划"
+        content.title = L("生存计划")
         content.body = body
         content.sound = .default
         
@@ -53,8 +53,8 @@ enum NotificationManager {
     /// 每周日 20:00 周报
     static func scheduleWeeklyReport() {
         let content = UNMutableNotificationContent()
-        content.title = "本周支出报告"
-        content.body = "打开生存计划查看本周支出分析、资金走势和健康状态"
+        content.title = L("本周支出报告")
+        content.body = L("打开生存计划查看本周支出分析、资金走势和健康状态")
         content.sound = .default
         
         let trigger = UNCalendarNotificationTrigger(
