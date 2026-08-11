@@ -1,7 +1,7 @@
 import Foundation
 
 // MARK: - 生存报告
-struct SurvivalReport {
+struct SurvivalReport: Equatable {
     let totalMonthlyIncome: Double
     let totalSavings: Double
     let essentialExpenses: Double      // 当前月刚性支出
@@ -27,7 +27,7 @@ struct SurvivalReport {
     let timeline: [MonthSnapshot]      // 逐月投影
 }
 
-struct MonthSnapshot: Identifiable {
+struct MonthSnapshot: Identifiable, Equatable {
     let id: Int                        // 月份序号（1开始）
     let income: Double
     let expenses: Double
@@ -48,7 +48,7 @@ struct SurvivalCalculator {
     
     /// 计算某个月的具体收支（考虑时间窗口）
     /// - Parameter simulatedJob: 模拟「找到工作」的收入切换（生效月起失业金/兼职停发，收入替换为新工资）
-    private static func monthFinances(profile: UserProfile, month: Int, simulatedJob: JobSimulation? = nil) -> (income: Double, essential: Double) {
+    private static func monthFinances(draft: UserProfileDraft, month: Int, simulatedJob: JobSimulation? = nil) -> (income: Double, essential: Double) {
         let income: Double
         if let job = simulatedJob, month >= job.startMonth {
             // 找到工作后：失业金停发、兼职由新工作替代，收入 = 新工资 + 配偶 + 其他
@@ -58,60 +58,66 @@ struct SurvivalCalculator {
             } else {
                 jobIncome = job.regularIncome
             }
-            income = jobIncome + profile.spouseIncome + profile.otherIncome
+            income = jobIncome + draft.spouseIncome + draft.otherIncome
         } else {
             // 收入：失业金仅在有额度且未到期时计入；兼职收入仅在开启开关时计入
-            var base = profile.spouseIncome + profile.otherIncome
-            if profile.hasPartTimeIncome {
-                base += profile.partTimeIncome
+            var base = draft.spouseIncome + draft.otherIncome
+            if draft.hasPartTimeIncome {
+                base += draft.partTimeIncome
             }
-            if profile.hasUnemploymentBenefit {
-                if profile.unemploymentBenefitMonths == 0 || month <= profile.unemploymentBenefitMonths {
-                    base += profile.unemploymentBenefit
+            if draft.hasUnemploymentBenefit {
+                if draft.unemploymentBenefitMonths == 0 || month <= draft.unemploymentBenefitMonths {
+                    base += draft.unemploymentBenefit
                 }
             }
             income = base
         }
         
         // 刚性支出：房贷/车贷仅在有额度且未到期时计入
-        var essential = profile.propertyFee
-            + profile.utilities
-            + profile.internet
-            + profile.phone
-            + profile.insurance
-            + profile.creditCardDebt
-            + profile.onlineLoanDebt
-            + profile.privateLoanDebt
+        var essential = draft.propertyFee
+            + draft.utilities
+            + draft.internet
+            + draft.phone
+            + draft.insurance
+            + draft.creditCardDebt
+            + draft.onlineLoanDebt
+            + draft.privateLoanDebt
         
-        if profile.mortgageRemainingMonths == 0 || month <= profile.mortgageRemainingMonths {
-            essential += profile.mortgage
+        if draft.mortgageRemainingMonths == 0 || month <= draft.mortgageRemainingMonths {
+            essential += draft.mortgage
         }
-        if profile.carLoanRemainingMonths == 0 || month <= profile.carLoanRemainingMonths {
-            essential += profile.carLoan
+        if draft.carLoanRemainingMonths == 0 || month <= draft.carLoanRemainingMonths {
+            essential += draft.carLoan
         }
         
         return (income, essential)
     }
     
     static func calculate(from profile: UserProfile) -> SurvivalReport {
-        calculate(from: profile, simulatedJob: nil)
+        // 主线程转值类型快照：后台线程访问 @Model 会死锁（SwiftData 跨线程懒加载）
+        calculate(from: UserProfileDraft(profile: profile), simulatedJob: nil)
+    }
+
+    /// 值类型快照版（后台线程安全——不碰 @Model）
+    static func calculate(from draft: UserProfileDraft) -> SurvivalReport {
+        calculate(from: draft, simulatedJob: nil)
     }
 
     /// 内部计算入口，支持模拟收入切换
-    private static func calculate(from profile: UserProfile, simulatedJob: JobSimulation?) -> SurvivalReport {
+    private static func calculate(from draft: UserProfileDraft, simulatedJob: JobSimulation?) -> SurvivalReport {
         // 积蓄
-        let totalSavings = profile.savings + profile.investments
+        let totalSavings = draft.savings + draft.investments
         
         // 弹性月支出（固定不变）
-        let flexible = profile.foodBudget
-            + profile.transportBudget
-            + profile.medicalBudget
-            + profile.educationBudget
-            + profile.socialBudget
-            + profile.shoppingBudget
+        let flexible = draft.foodBudget
+            + draft.transportBudget
+            + draft.medicalBudget
+            + draft.educationBudget
+            + draft.socialBudget
+            + draft.shoppingBudget
         
         // 当前月（第1个月）的情况
-        let (currentIncome, currentEssential) = monthFinances(profile: profile, month: 1, simulatedJob: simulatedJob)
+        let (currentIncome, currentEssential) = monthFinances(draft: draft, month: 1, simulatedJob: simulatedJob)
         let currentTotal = currentEssential + flexible
         let currentShortfall = currentTotal - currentIncome
         
@@ -122,7 +128,7 @@ struct SurvivalCalculator {
         let maxProjection = 600 // 最多投影600个月（50年）
         
         for month in 1...maxProjection {
-            let (mIncome, mEssential) = monthFinances(profile: profile, month: month, simulatedJob: simulatedJob)
+            let (mIncome, mEssential) = monthFinances(draft: draft, month: month, simulatedJob: simulatedJob)
             let mTotal = mEssential + flexible
             let mNet = mIncome - mTotal
             
@@ -159,23 +165,23 @@ struct SurvivalCalculator {
         let warning = monthsCanSurvive < 3
         let warningMsg: String
         if monthsCanSurvive < 3 {
-            warningMsg = "⚠️ 资金仅够维持 \(Int(monthsCanSurvive)) 个月，低于3个月安全线，建议立即削减开支"
+            warningMsg = Lf("⚠️ 资金仅够维持 %lld 个月，低于3个月安全线，建议立即削减开支", Int(monthsCanSurvive))
         } else if monthsCanSurvive < 6 {
-            warningMsg = "🟡 资金可维持 \(Int(monthsCanSurvive)) 个月，建议积极寻找收入来源"
+            warningMsg = Lf("🟡 资金可维持 %lld 个月，建议积极寻找收入来源", Int(monthsCanSurvive))
         } else if monthsCanSurvive < 12 {
-            warningMsg = "🟢 资金可维持 \(Int(monthsCanSurvive)) 个月，状况尚可但需规划"
+            warningMsg = Lf("🟢 资金可维持 %lld 个月，状况尚可但需规划", Int(monthsCanSurvive))
         } else {
-            warningMsg = "✅ 资金可维持 \(Int(monthsCanSurvive)) 个月以上，状况良好"
+            warningMsg = Lf("✅ 资金可维持 %lld 个月以上，状况良好", Int(monthsCanSurvive))
         }
         
         // 各分类每日预算
         let total = currentTotal
-        let foodPct = total > 0 ? profile.foodBudget / total : 0
-        let transportPct = total > 0 ? profile.transportBudget / total : 0
-        let medicalPct = total > 0 ? profile.medicalBudget / total : 0
-        let educationPct = total > 0 ? profile.educationBudget / total : 0
-        let socialPct = total > 0 ? profile.socialBudget / total : 0
-        let shoppingPct = total > 0 ? profile.shoppingBudget / total : 0
+        let foodPct = total > 0 ? draft.foodBudget / total : 0
+        let transportPct = total > 0 ? draft.transportBudget / total : 0
+        let medicalPct = total > 0 ? draft.medicalBudget / total : 0
+        let educationPct = total > 0 ? draft.educationBudget / total : 0
+        let socialPct = total > 0 ? draft.socialBudget / total : 0
+        let shoppingPct = total > 0 ? draft.shoppingBudget / total : 0
         
         return SurvivalReport(
             totalMonthlyIncome: currentIncome,
@@ -288,7 +294,7 @@ struct SurvivalCalculator {
             simulatedJob = nil
         }
 
-        return calculate(from: temp, simulatedJob: simulatedJob)
+        return calculate(from: UserProfileDraft(profile: temp), simulatedJob: simulatedJob)
     }
 }
 
