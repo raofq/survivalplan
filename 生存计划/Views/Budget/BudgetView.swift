@@ -6,8 +6,9 @@ struct BudgetView: View {
     let profile: UserProfile
     @Query(sort: \ExpenseRecord.date, order: .reverse) private var expenses: [ExpenseRecord]
     
+    @State private var reportCache: SurvivalReport?
     private var report: SurvivalReport {
-        SurvivalCalculator.calculate(from: profile)
+        reportCache ?? SurvivalCalculator.calculate(from: profile)
     }
     
     // 最近30天支出
@@ -25,16 +26,18 @@ struct BudgetView: View {
     
     var body: some View {
         NavigationStack {
-            ScrollView {
+            Group {
+                if let report = reportCache {
+                ScrollView {
                 VStack(spacing: 16) {
                     // 本周预算
                     VStack(spacing: 8) {
-                        Text("本周预算")
+                        Text(L("本周预算"))
                             .font(.headline)
-                        Text("¥\(Int(report.weeklyBudget))")
+                        Text("\(money(report.weeklyBudget))")
                             .font(.system(size: 40, weight: .bold))
                             .foregroundStyle(.blue)
-                        Text("每日 ¥\(Int(report.dailyBudget))")
+                        Text("每日 ¥\(Int(report.dailyBudget.rounded()))")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -44,7 +47,7 @@ struct BudgetView: View {
                     
                     // 分类预算进度
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("分类预算")
+                        Text(L("分类预算"))
                             .font(.headline)
                         
                         BudgetProgressRow(label: "食品", budget: report.foodBudget * 30, spent: categoryTotal("食品"))
@@ -62,7 +65,7 @@ struct BudgetView: View {
                         VStack(alignment: .leading, spacing: 12) {
                             HStack {
                                 Image(systemName: "chart.xyaxis.line")
-                                Text("月底支出预测")
+                                Text(L("月底支出预测"))
                                     .font(.headline)
                                 Spacer()
                             }
@@ -89,7 +92,7 @@ struct BudgetView: View {
                     
                     // 支出趋势（最近7天）
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("最近7天支出")
+                        Text(L("最近7天支出"))
                             .font(.headline)
                         
                         Chart {
@@ -106,9 +109,23 @@ struct BudgetView: View {
                     .padding()
                     .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
                 }
-                .padding()
+                    .padding()
+                }
+                } else {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
             }
-            .navigationTitle("预算")
+            .scrollIndicators(.hidden)
+            .onAppear {
+                // 每次进入都重算：设置改动后预算页数据实时联动
+                let d = UserProfileDraft(profile: profile)   // 主线程取值快照——后台不碰 @Model
+                Task.detached(priority: .userInitiated) {
+                    let r = SurvivalCalculator.calculate(from: d)
+                    await MainActor.run { reportCache = r }
+                }
+            }
+        .navigationTitle("预算")
         }
     }
     
@@ -155,7 +172,8 @@ struct BudgetView: View {
     }
 
     private func formatCurrency(_ value: Double) -> String {
-        "¥\(Int(value))"
+        return money(value)
+
     }
 }
 
@@ -179,16 +197,16 @@ struct BudgetProgressRow: View {
     var body: some View {
         VStack(spacing: 4) {
             HStack {
-                Text(label)
+                Text(L(label))
                     .font(.subheadline)
                 Spacer()
-                Text(healthText)
+                Text(L(healthText))
                     .font(.caption2)
                     .foregroundStyle(healthColor)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(healthColor.opacity(0.12), in: .capsule)
-                Text("¥\(Int(spent)) / ¥\(Int(budget))")
+                Text("¥\(Int(spent.rounded())) / ¥\(Int(budget.rounded()))")
                     .font(.caption)
                     .foregroundStyle(pct > 1 ? .red : .secondary)
             }
