@@ -1,9 +1,64 @@
 import Foundation
 import UIKit
 
+// MARK: - 公告（站内信）
+struct Announcement: Codable, Equatable {
+    let title: String
+    let content: String
+    let level: String   // normal | maintenance
+    let createdAt: String?
+
+    var isMaintenance: Bool { level == "maintenance" }
+}
+
+extension CircleAPI {
+    /// 拉取当前公告；失败返回 nil（静默，不打扰用户）。
+    /// 成功时缓存到 UserDefaults——停服/断网期间横幅依然显示（告知维护中）。
+    static func fetchAnnouncement() async -> Announcement? {
+        var request = URLRequest(url: baseURL.appendingPathComponent("announcement"))
+        request.timeoutInterval = 10
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }
+            guard let ann = try? JSONDecoder().decode(Announcement.self, from: data) else { return nil }
+            if let cached = try? JSONEncoder().encode(ann) {
+                UserDefaults.standard.set(cached, forKey: "circle_announcement")
+            }
+            return ann
+        } catch {
+            // 失败：用本地缓存的公告（如维护期间后端不可达）
+            if let cached = UserDefaults.standard.data(forKey: "circle_announcement"),
+               let ann = try? JSONDecoder().decode(Announcement.self, from: cached) {
+                return ann
+            }
+            return nil
+        }
+    }
+}
+
 // MARK: - 圈子后端 API 客户端
 enum CircleAPI {
-    static var baseURL = URL(string: "http://127.0.0.1:8900/api")!
+    /// 生产环境（自定义域名 → Render，自动 HTTPS；比直连 onrender.com 国内访问更稳）
+    static let productionBaseURL = URL(string: "https://survivalplan.bbroot.com/api")!
+    /// 本地开发后端
+    static let localBaseURL = URL(string: "http://127.0.0.1:8900/api")!
+
+    /// 当前使用的后端地址：
+    /// - DEBUG 构建默认本地（开发方便），可设 UserDefaults `circle_custom_base` 指向任意测试后端
+    ///   （例：cpolar 隧道 https://xxx.cpolar.top/api），或 `circle_use_production=true` 切公网
+    /// - Release 构建固定生产
+    static var baseURL: URL {
+        #if DEBUG
+        if let custom = UserDefaults.standard.string(forKey: "circle_custom_base"),
+           let url = URL(string: custom) {
+            return url
+        }
+        return UserDefaults.standard.bool(forKey: "circle_use_production") ? productionBaseURL : localBaseURL
+        #else
+        return productionBaseURL
+        #endif
+    }
+
     /// 服务器根（uploads 静态目录挂在根下）
     static var serverRoot: URL { baseURL.deletingLastPathComponent() }
 
@@ -61,8 +116,9 @@ enum CircleAPI {
     }
 
     // 删除自己的帖子
-    static func deletePost(id: String, author: String) async throws {
-        var request = URLRequest(url: baseURL.appendingPathComponent("posts/\(id)").appending(queryItems: [URLQueryItem(name: "author", value: author)]))
+    // 删除帖子（按设备鉴权：只能删本机发的帖）
+    static func deletePost(id: String) async throws {
+        var request = URLRequest(url: baseURL.appendingPathComponent("posts/\(id)").appending(queryItems: [URLQueryItem(name: "device_id", value: deviceID)]))
         request.httpMethod = "DELETE"
         let (_, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
@@ -71,14 +127,14 @@ enum CircleAPI {
     }
 
     // 发布帖子
-    static func createPost(category: String, title: String, content: String, author: String, imageURLs: [String] = [], location: String? = nil, salary: String? = nil) async throws -> Post {
+    static func createPost(category: String, title: String, content: String, author: String, imageURLs: [String] = [], location: String? = nil, salary: String? = nil, company: String? = nil, contact: String? = nil) async throws -> Post {
         var request = URLRequest(url: baseURL.appendingPathComponent("posts"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(PostDTO(
             id: nil, category: category, title: title, content: content,
             author: author, likes: nil, createdAt: nil, imageURLs: imageURLs,
-            location: location, salary: salary, deviceId: deviceID
+            location: location, salary: salary, company: company, contact: contact, contactMasked: nil, liked: nil, deviceId: deviceID
         ))
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
@@ -89,12 +145,27 @@ enum CircleAPI {
 
     // 上传图片，返回服务器相对路径
     static func uploadImage(_ image: UIImage) async throws -> String {
-        guard let data = image.jpegData(compressionQuality: 0.7) else {
+        // 压缩：最长边 ≤ 1600px（圈子展示足够），12MP 原图压到 ~300-500KB，
+        // 慢速隧道/弱网下也能在超时前传完
+        let maxDim: CGFloat = 1600
+        let longest = max(image.size.width, image.size.height)
+        let scale = min(1, maxDim / longest)
+        let resized: UIImage
+        if scale < 1 {
+            let newSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+            resized = UIGraphicsImageRenderer(size: newSize).image { _ in
+                image.draw(in: CGRect(origin: .zero, size: newSize))
+            }
+        } else {
+            resized = image
+        }
+        guard let data = resized.jpegData(compressionQuality: 0.7) else {
             throw URLError(.cannotDecodeContentData)
         }
         let boundary = "Boundary-\(UUID().uuidString)"
         var request = URLRequest(url: baseURL.appendingPathComponent("upload"))
         request.httpMethod = "POST"
+        request.timeoutInterval = 60  // 覆盖 session 的 10s 请求超时（上传走慢隧道/弱网）
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
 
         var body = Data()
@@ -113,15 +184,16 @@ enum CircleAPI {
         return try JSONDecoder().decode(UploadResult.self, from: data2).url
     }
 
-    // 点赞（幂等：同一设备重复点赞不重复计数）
-    static func likePost(id: String) async throws -> Post {
+    // 点赞/取消点赞（toggle）：返回最新帖子 + 是否已赞
+    static func likePost(id: String) async throws -> (Post, Bool) {
         var request = URLRequest(url: baseURL.appendingPathComponent("posts/\(id)/like").appending(queryItems: [URLQueryItem(name: "device_id", value: deviceID)]))
         request.httpMethod = "POST"
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
             throw URLError(.badServerResponse)
         }
-        return try JSONDecoder().decode(PostDTO.self, from: data).toPost()
+        let dto = try JSONDecoder().decode(PostDTO.self, from: data)
+        return (dto.toPost(), dto.liked ?? false)
     }
 
     /// 评论内存缓存（postID → 已加载的评论），避免反复进出详情页重复请求
@@ -236,12 +308,17 @@ struct PostDTO: Codable {
     let imageURLs: [String]?
     let location: String?
     let salary: String?
+    let company: String?
+    let contact: String?          // 仅编码（发帖请求传给后端）；响应不返回
+    let contactMasked: String?    // 仅解码（后端返回的脱敏联系方式）
+    let liked: Bool?              // 仅点赞接口返回（是否已赞）
     let deviceId: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, category, title, content, author, likes, location, salary
+        case id, category, title, content, author, likes, location, salary, company, contact, liked
         case createdAt = "created_at"
         case imageURLs = "image_urls"
+        case contactMasked = "contact_masked"
         case deviceId = "device_id"
     }
 
@@ -259,7 +336,78 @@ struct PostDTO: Codable {
             imageURLs: urls,
             location: location,
             salary: salary,
+            company: company,
+            contactMasked: contactMasked,
             createdAt: date
         )
+    }
+}
+
+// MARK: - 功能使用统计（匿名埋点）
+/// 只上报事件名 + 轻量参数（页面/操作类型），不采集用户输入内容；
+/// 设备身份复用 CircleAPI.deviceID（匿名 UUID）；离线缓冲 + 批量上报，失败不打扰用户。
+final class AnalyticsService {
+    static let shared = AnalyticsService()
+
+    private let lock = NSLock()   // 任意线程可调（非 MainActor 隔离）
+    private var queue: [[String: Any]] = []
+    private var flushing = false
+    private let batchSize = 20
+    private let maxQueue = 200   // 离线上限，防无限膨胀
+
+    private init() {
+        lock.lock()
+        if let saved = UserDefaults.standard.data(forKey: "analytics_queue"),
+           let arr = try? JSONSerialization.jsonObject(with: saved) as? [[String: Any]] {
+            queue = Array(arr.prefix(maxQueue))
+        }
+        lock.unlock()
+        // 兜底：每 60 秒尝试清一次队列
+        Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            Task { await self?.flush() }
+        }
+    }
+
+    func track(_ event: String, params: [String: Any]? = nil) {
+        lock.lock()
+        var item: [String: Any] = ["event": event, "ts": Int(Date().timeIntervalSince1970)]
+        if let params { item["params"] = params }
+        queue.append(item)
+        if queue.count > maxQueue { queue.removeFirst(queue.count - maxQueue) }
+        let shouldFlush = queue.count >= 10   // 满 10 条立即上报
+        lock.unlock()
+        if shouldFlush {
+            Task { await flush() }
+        }
+    }
+
+    func flush() async {
+        lock.lock()
+        guard !queue.isEmpty, !flushing else { lock.unlock(); return }
+        flushing = true
+        let batch = Array(queue.prefix(batchSize))
+        lock.unlock()
+        var req = URLRequest(url: CircleAPI.baseURL.appendingPathComponent("analytics"))
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.timeoutInterval = 10
+        let payload: [String: Any] = ["device_id": CircleAPI.deviceID, "events": batch]
+        req.httpBody = try? JSONSerialization.data(withJSONObject: payload)
+        if let (_, resp) = try? await CircleAPI.session.data(for: req),
+           let http = resp as? HTTPURLResponse, http.statusCode == 200 {
+            lock.lock()
+            queue.removeFirst(batch.count)   // 成功清队列
+            lock.unlock()
+        }
+        lock.lock()
+        flushing = false
+        persistLocked()
+        lock.unlock()
+    }
+
+    private func persistLocked() {
+        if let d = try? JSONSerialization.data(withJSONObject: queue) {
+            UserDefaults.standard.set(d, forKey: "analytics_queue")
+        }
     }
 }
