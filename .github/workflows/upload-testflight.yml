@@ -46,9 +46,13 @@ jobs:
 
       - name: Upload to App Store Connect (TestFlight)
         env:
+          ASC_API_KEY_B64: ${{ secrets.ASC_API_KEY_B64 }}
           API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
           ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
+          mkdir -p ~/private_keys
+          echo "$ASC_API_KEY_B64" | base64 -d > ~/private_keys/AuthKey_${API_KEY_ID}.p8
+          chmod 600 ~/private_keys/AuthKey_${API_KEY_ID}.p8
           xcrun altool --upload-app \
             -f "$RUNNER_TEMP/SurvivalPlan.xcarchive" \
             -t ios \
