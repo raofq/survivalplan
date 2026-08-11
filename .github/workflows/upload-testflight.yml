@@ -59,8 +59,10 @@ jobs:
           mkdir -p ~/private_keys
           echo "$ASC_API_KEY_B64" | base64 -d > ~/private_keys/AuthKey_${API_KEY_ID}.p8
           chmod 600 ~/private_keys/AuthKey_${API_KEY_ID}.p8
+          IPA=$(ls "$RUNNER_TEMP/export/"*.ipa | head -1)
+          echo "上传 IPA: $IPA"
           xcrun altool --upload-app \
-            -f "$RUNNER_TEMP/export/SurvivalPlan.ipa" \
+            -f "$IPA" \
             -t ios \
             --apiKey "$API_KEY_ID" \
             --apiIssuer "$ISSUER_ID" \
