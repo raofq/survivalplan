@@ -19,6 +19,16 @@ jobs:
           echo "$ASC_API_KEY_B64" | base64 -d > ~/private_keys/AuthKey_${API_KEY_ID}.p8
           chmod 600 ~/private_keys/AuthKey_${API_KEY_ID}.p8
 
+      - name: Debug API Key
+        env:
+          API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+        run: |
+          ls -la ~/private_keys/
+          echo "KEY_ID=${API_KEY_ID}"
+          head -c 60 ~/private_keys/AuthKey_${API_KEY_ID}.p8
+          echo ""
+          xcodebuild -version
+
       - name: Archive (Automatic Signing via API Key)
         env:
           APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
