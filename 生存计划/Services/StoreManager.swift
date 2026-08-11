@@ -14,6 +14,8 @@ final class StoreManager: ObservableObject {
     @Published private(set) var product: Product?
     @Published private(set) var isPurchased = false
     @Published var showPaywall = false
+    /// 最近一次购买/恢复的错误信息（UI 展示用，便于诊断沙盒/产品问题）
+    @Published var lastError: String?
 
     /// 开发期开关：无需真实内购即可预览 Pro 解锁效果（上线前必须关掉）
     static var debugUnlockPro = false
@@ -57,13 +59,28 @@ final class StoreManager: ObservableObject {
 
     /// 发起购买
     func purchase() async {
-        guard let product else { return }
-        let result = try? await product.purchase()
-        if case .success(let verification) = result {
-            if case .verified(let transaction) = verification {
-                await apply(transaction: transaction)
-                await transaction.finish()
+        guard let product else {
+            lastError = L("产品不可用，请稍后重试")
+            return
+        }
+        lastError = nil
+        do {
+            let result = try await product.purchase()
+            switch result {
+            case .success(let verification):
+                if case .verified(let transaction) = verification {
+                    await apply(transaction: transaction)
+                    await transaction.finish()
+                }
+            case .userCancelled:
+                break
+            case .pending:
+                lastError = L("购买待处理，请稍后查看")
+            @unknown default:
+                break
             }
+        } catch {
+            lastError = L("购买失败：") + error.localizedDescription
         }
     }
 
