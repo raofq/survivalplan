@@ -38,7 +38,10 @@ enum ProFeatures {
 enum ProLock {
     /// 未解锁时点击 Pro 功能的提示文案
     static func message(for feature: String) -> String {
-        "「\(feature)」是 Pro 专属功能，买断解锁后可用（内购即将上线）"
+        if LanguageManager.isChinese {
+            return "「\(feature)」是 Pro 专属功能，买断解锁后可用（内购即将上线）"
+        }
+        return String(format: NSLocalizedString("「%@」是 Pro 专属功能，买断解锁后可用（内购即将上线）", comment: ""), L(feature))
     }
 
     /// Pro 标识角标（列表行/按钮上的小锁或皇冠）
