@@ -7,12 +7,15 @@ struct DashboardView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \ExpenseRecord.date, order: .reverse) private var expenses: [ExpenseRecord]
     
+    @State private var reportCache: SurvivalReport?
     private var report: SurvivalReport {
-        SurvivalCalculator.calculate(from: profile)
+        reportCache ?? SurvivalCalculator.calculate(from: profile)
     }
     
     var body: some View {
         NavigationStack {
+            Group {
+                if reportCache != nil {
             ScrollView {
                 VStack(spacing: 16) {
                     // 风险等级卡片
@@ -29,13 +32,28 @@ struct DashboardView: View {
                     QuickExpenseCard(profile: profile, expenses: expenses, todayExpenses: todayExpenses)
                 }
                 .padding()
+                }
+                } else {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
             }
+            .listStyle(.grouped)
+            .scrollIndicators(.hidden)
             .navigationTitle("生存计划")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     NavigationLink("设置") {
                         SettingsView(profile: profile)
                     }
+                }
+            }
+            .onAppear {
+                // 每次进入都重算：设置页改过存款/开销后，财务概览实时联动
+                let d = UserProfileDraft(profile: profile)   // 快照——后台算不碰 @Model
+                Task.detached(priority: .userInitiated) {
+                    let r = SurvivalCalculator.calculate(from: d)
+                    await MainActor.run { reportCache = r }
                 }
             }
         }
@@ -89,7 +107,7 @@ struct OverviewCard: View {
         VStack(spacing: 16) {
             HStack {
                 Image(systemName: "chart.pie.fill")
-                Text("财务概览")
+                Text(L("财务概览"))
                     .font(.headline)
                 Spacer()
                 // 已失业天数（时间锚点）
@@ -114,7 +132,7 @@ struct OverviewCard: View {
             Divider()
             
             HStack {
-                Text("资金耗尽日")
+                Text(L("资金耗尽日"))
                 Spacer()
                 Text(report.exhaustionDate, style: .date)
                     .fontWeight(.semibold)
@@ -123,7 +141,7 @@ struct OverviewCard: View {
             .font(.subheadline)
             
             HStack {
-                Text("可用资金")
+                Text(L("可用资金"))
                 Spacer()
                 Text(formatCurrency(report.totalSavings))
                     .fontWeight(.semibold)
@@ -135,11 +153,8 @@ struct OverviewCard: View {
     }
     
     private func formatCurrency(_ value: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencySymbol = "¥"
-        formatter.maximumFractionDigits = 0
-        return formatter.string(from: NSNumber(value: value)) ?? "¥0"
+        return money(value)
+
     }
 }
 
@@ -154,7 +169,7 @@ struct StatItem: View {
                 .font(.title2)
                 .fontWeight(.bold)
                 .foregroundStyle(color)
-            Text(label)
+            Text(L(label))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -171,10 +186,10 @@ struct FundTimelineCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "calendar.badge.clock")
-                Text("本月剩余预算")
+                Text(L("本月剩余预算"))
                     .font(.headline)
                 Spacer()
-                Text("月初至今")
+                Text(L("月初至今"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -184,7 +199,7 @@ struct FundTimelineCard: View {
                 row(label: "本月已花", value: formatCurrency(monthSpent), color: .red)
                 Divider()
                 row(label: "本月剩余", value: formatCurrency(max(monthBudget - monthSpent, 0)), color: monthSpent > monthBudget ? .red : .green, bold: true)
-                row(label: "剩余天数", value: "\(daysLeft) 天", color: .secondary)
+                row(label: "剩余天数", value: "\(daysLeft) " + L("天"), color: .secondary)
                 row(label: "日均可用", value: formatCurrency(dailyRemaining), color: dailyRemaining < 0 ? .red : .blue)
             }
         }
@@ -194,7 +209,7 @@ struct FundTimelineCard: View {
 
     private func row(label: String, value: String, color: Color, bold: Bool = false) -> some View {
         HStack {
-            Text(label)
+            Text(L(label))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Spacer()
@@ -239,7 +254,8 @@ struct FundTimelineCard: View {
     }
 
     private func formatCurrency(_ value: Double) -> String {
-        "¥\(Int(value))"
+        return money(value)
+
     }
 }
 
@@ -258,7 +274,7 @@ struct DailyBudgetCard: View {
         VStack(spacing: 12) {
             HStack {
                 Image(systemName: "calendar.day.timeline.left")
-                Text("今日可用预算")
+                Text(L("今日可用预算"))
                     .font(.headline)
                 Spacer()
                 Text(formatCurrency(max(remaining, 0)))
@@ -293,7 +309,8 @@ struct DailyBudgetCard: View {
     }
     
     private func formatCurrency(_ value: Double) -> String {
-        "¥\(Int(value))"
+        return money(value)
+
     }
 }
 
@@ -314,7 +331,7 @@ struct QuickExpenseCard: View {
         VStack(spacing: 12) {
             HStack {
                 Image(systemName: "list.clipboard")
-                Text("今日支出")
+                Text(L("今日支出"))
                     .font(.headline)
                 Spacer()
                 Text("共 \(todayExpenses.count) 笔")
@@ -329,10 +346,10 @@ struct QuickExpenseCard: View {
                             category = cat
                             showSheet = true
                         } label: {
-                            Text(cat.map { String($0) }.joined(separator: "\n"))
+                            Text(L(cat))
                                 .font(.caption)
-                                .multilineTextAlignment(.center)
-                                .frame(width: 34, height: 46)
+                                .frame(minWidth: 44)
+                                .frame(height: 34)
                         }
                         .buttonStyle(.bordered)
                     }
@@ -341,15 +358,18 @@ struct QuickExpenseCard: View {
             .sheet(isPresented: $showSheet) {
                 NavigationStack {
                     Form {
-                        TextField("金额", text: $amount)
+                        SafeMoneyField(text: $amount, placeholder: L("金额"), alignment: .left)   // 与备注左对齐一致
                             .keyboardType(.decimalPad)
                         TextField("备注（可选）", text: $note)
                     }
-                    .navigationTitle(category)
+                    .listStyle(.grouped)
+        .scrollIndicators(.hidden)
+        .navigationTitle(category)
+                    .hideKeyboardOnTap()
                     .toolbar {
-                        ToolbarItem(placement: .cancellationAction) { Button("取消") { showSheet = false } }
+                        ToolbarItem(placement: .cancellationAction) { Button(L("取消")) { showSheet = false } }
                         ToolbarItem(placement: .confirmationAction) {
-                            Button("保存") {
+                            Button(L("保存")) {
                                 saveExpense()
                                 showSheet = false
                             }
@@ -363,14 +383,14 @@ struct QuickExpenseCard: View {
             Divider()
 
             if todayExpenses.isEmpty {
-                Text("今天还没有支出记录")
+                Text(L("今天还没有支出记录"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.vertical, 4)
             } else {
                 ForEach(todayExpenses.prefix(6)) { expense in
                     HStack {
-                        Text(expense.category)
+                        Text(L(expense.category))
                             .font(.caption)
                         if !expense.note.isEmpty {
                             Text(expense.note)
@@ -396,6 +416,7 @@ struct QuickExpenseCard: View {
     }
 
     private func saveExpense() {
+        AnalyticsService.shared.track("action_record_expense")
         guard let amt = Double(amount), amt > 0 else { return }
         let record = ExpenseRecord(category: category, amount: amt, note: note)
         modelContext.insert(record)
@@ -404,6 +425,7 @@ struct QuickExpenseCard: View {
     }
 
     private func formatCurrency(_ value: Double) -> String {
-        "¥\(Int(value))"
+        return money(value)
+
     }
 }
