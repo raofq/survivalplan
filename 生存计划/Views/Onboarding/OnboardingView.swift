@@ -136,6 +136,15 @@ struct IncomeView: View {
     var body: some View {
         Form {
             Section {
+                HStack {
+                    Text(L("失业日期"))
+                    Spacer()
+                    DatePicker("", selection: Binding(
+                        get: { profile.unemploymentDate ?? Date() },
+                        set: { profile.unemploymentDate = $0 }
+                    ), displayedComponents: .date)
+                }
+                
                 Toggle("领取失业金", isOn: $profile.hasUnemploymentBenefit)
                 if profile.hasUnemploymentBenefit {
                     MoneyInputRow(label: "每月金额", value: $profile.unemploymentBenefit, suffix: "元/月")
