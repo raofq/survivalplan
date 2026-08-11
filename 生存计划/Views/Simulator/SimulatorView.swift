@@ -551,6 +551,26 @@ struct TimelineComparisonChart: View {
     let current: SurvivalReport
     let simulated: SurvivalReport
 
+    /// X 轴展示范围：以两条曲线耗尽月为基准 +6 个月余量（最少 12 个月）；
+    /// 都没耗尽（600 个月内资金为正）则全量展示。
+    private var xMax: Int {
+        let ce = exhaustionMonth(current)
+        let se = exhaustionMonth(simulated)
+        let total = current.timeline.count
+        if ce == nil && se == nil { return total }
+        let last = max(ce ?? 0, se ?? 0)
+        return min(max(last + 6, 12), total)
+    }
+
+    /// 数据点：展示范围超大（>200 个月）时按 2 个月步长抽样减密，曲线形状不变、绘制更快
+    private var currentPoints: [MonthSnapshot] { sampled(current.timeline) }
+    private var simulatedPoints: [MonthSnapshot] { sampled(simulated.timeline) }
+
+    private func sampled(_ timeline: [MonthSnapshot]) -> [MonthSnapshot] {
+        guard xMax > 200 else { return timeline }
+        return stride(from: 0, to: timeline.count, by: 2).map { timeline[$0] }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -561,7 +581,7 @@ struct TimelineComparisonChart: View {
             }
 
             Chart {
-                ForEach(current.timeline) { month in
+                ForEach(currentPoints) { month in
                     LineMark(
                         x: .value("月份", month.id),
                         y: .value("积蓄", month.savingsAfter),
@@ -572,7 +592,7 @@ struct TimelineComparisonChart: View {
                     .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 4]))
                 }
 
-                ForEach(simulated.timeline) { month in
+                ForEach(simulatedPoints) { month in
                     LineMark(
                         x: .value("月份", month.id),
                         y: .value("积蓄", month.savingsAfter),
@@ -595,6 +615,7 @@ struct TimelineComparisonChart: View {
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
                 }
             }
+            .chartXScale(domain: 1...xMax)
             .chartXAxis {
                 AxisMarks(values: .automatic(desiredCount: 6)) { value in
                     AxisValueLabel {
