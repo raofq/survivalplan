@@ -5,7 +5,9 @@ struct SimulatorView: View {
     let profile: UserProfile
     
     @State private var newJobIncome: Double = 0
+    @State private var newJobIncomeText: String = ""
     @State private var probationIncome: Double = 0
+    @State private var probationIncomeText: String = ""
     @State private var probationMonths: Int = 0
     @State private var foodCut: Double = 0
     @State private var transportCut: Double = 0
@@ -15,8 +17,10 @@ struct SimulatorView: View {
     @State private var findJobInMonths: Int = 3
     @State private var showResult = false
     @State private var simulatedReport: SurvivalReport?
+    @State private var reportCache: SurvivalReport?
     @State private var targetMonths = 12
     @State private var showProLock = false
+    @State private var proLockFeature = "场景模拟"
     @State private var activeScenario: Scenario?
     @State private var stopShoppingOn = false
     @State private var stopEducationOn = false
@@ -33,7 +37,8 @@ struct SimulatorView: View {
     }
     
     private var currentReport: SurvivalReport {
-        SurvivalCalculator.calculate(from: profile)
+        // 缓存计算结果：避免每次按键 body 重算触发全量生存计算（卡顿主因）
+        reportCache ?? SurvivalCalculator.calculate(from: profile)
     }
 
     private var targetResult: SurvivalTarget? {
@@ -43,6 +48,8 @@ struct SimulatorView: View {
     
     var body: some View {
         NavigationStack {
+            Group {
+                if reportCache != nil {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 16) {
@@ -50,17 +57,17 @@ struct SimulatorView: View {
                     VStack(spacing: 8) {
                         HStack {
                             Image(systemName: "info.circle.fill")
-                            Text("当前状况")
+                            Text(L("当前状况"))
                                 .font(.headline)
                             Spacer()
                         }
                         HStack {
-                            Text("可支撑")
-                            Text("\(Int(currentReport.monthsCanSurvive)) 个月")
+                            Text(L("可支撑"))
+                            Text(Lf("%lld 个月", Int(currentReport.monthsCanSurvive)))
                                 .fontWeight(.bold)
                                 .foregroundStyle(.blue)
                             Spacer()
-                            Text("每日 ¥\(Int(currentReport.dailyBudget))")
+                            Text("每日 ¥\(Int(currentReport.dailyBudget.rounded()))")
                                 .foregroundStyle(.secondary)
                         }
                         .font(.subheadline)
@@ -70,54 +77,57 @@ struct SimulatorView: View {
                     
                     // 模拟条件
                     VStack(spacing: 16) {
-                        Text("如果…会怎样？")
+                        Text(L("如果…会怎样？"))
                             .font(.headline)
                             .frame(maxWidth: .infinity, alignment: .leading)
                         
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("找到月薪多少的工作？")
+                            Text(L("找到月薪多少的工作？"))
                                 .font(.subheadline)
                             HStack {
-                                TextField("月薪", value: $newJobIncome, format: .number)
-                                    .keyboardType(.decimalPad)
-                                    .textFieldStyle(.roundedBorder)
-                                Text("元/月")
+                                SafeMoneyField(text: $newJobIncomeText, placeholder: L("月薪"))
+                                    .onChange(of: newJobIncomeText) { _, new in
+                                        newJobIncome = Double(new) ?? 0
+                                    }
+                                Text(L("元/月"))
                                     .font(.subheadline)
                             }
                         }
 
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(spacing: 6) {
-                                Text("试用期（选填）")
+                                Text(L("试用期（选填）"))
                                     .font(.subheadline)
                                 if !ProFeatures.simulatorTrialParams {
                                     ProLock.badge()
                                 }
                             }
                             HStack {
-                                TextField("试用期月薪", value: $probationIncome, format: .number)
-                                    .keyboardType(.decimalPad)
-                                    .textFieldStyle(.roundedBorder)
+                                SafeMoneyField(text: $probationIncomeText, placeholder: L("试用期月薪"))
                                     .disabled(!ProFeatures.simulatorTrialParams)
                                     .opacity(ProFeatures.simulatorTrialParams ? 1 : 0.4)
-                                Text("元/月")
+                                    .onChange(of: probationIncomeText) { _, new in
+                                        probationIncome = Double(new) ?? 0
+                                    }
+                                Text(L("元/月"))
                                     .font(.subheadline)
                             }
                             Picker("", selection: $probationMonths) {
-                                Text("无试用期").tag(0)
-                                Text("1个月").tag(1)
-                                Text("2个月").tag(2)
-                                Text("3个月").tag(3)
-                                Text("6个月").tag(6)
+                                Text(L("无试用期")).tag(0)
+                                Text(L("1个月")).tag(1)
+                                Text(L("2个月")).tag(2)
+                                Text(L("3个月")).tag(3)
+                                Text(L("6个月")).tag(6)
                             }
                             .pickerStyle(.segmented)
                             .disabled(!ProFeatures.simulatorTrialParams)
                             .opacity(ProFeatures.simulatorTrialParams ? 1 : 0.4)
                             if !ProFeatures.simulatorTrialParams {
                                 Button {
+                                    proLockFeature = "试用期参数"
                                     showProLock = true
                                 } label: {
-                                    Label("试用期参数是 Pro 功能", systemImage: "lock.fill")
+                                    Label(L("试用期参数是 Pro 功能"), systemImage: "lock.fill")
                                         .font(.caption)
                                         .foregroundStyle(.orange)
                                 }
@@ -125,7 +135,7 @@ struct SimulatorView: View {
                         }
 
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("削减开支（按百分比）")
+                            Text(L("削减开支（按百分比）"))
                                 .font(.subheadline)
                             HStack(spacing: 8) {
                                 cutField("食品", value: $foodCut)
@@ -136,13 +146,13 @@ struct SimulatorView: View {
                         }
                         
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("预计几个月后找到工作？")
+                            Text(L("预计几个月后找到工作？"))
                                 .font(.subheadline)
                             Picker("", selection: $findJobInMonths) {
-                                Text("1个月").tag(1)
-                                Text("3个月").tag(3)
-                                Text("6个月").tag(6)
-                                Text("12个月").tag(12)
+                                Text(L("1个月")).tag(1)
+                                Text(L("3个月")).tag(3)
+                                Text(L("6个月")).tag(6)
+                                Text(L("12个月")).tag(12)
                             }
                             .pickerStyle(.segmented)
                         }
@@ -154,7 +164,7 @@ struct SimulatorView: View {
                     VStack(spacing: 14) {
                         HStack {
                             Image(systemName: "square.grid.2x2.fill")
-                            Text("场景模拟")
+                            Text(L("场景模拟"))
                                 .font(.headline)
                             if !ProFeatures.simulatorScenarios {
                                 ProLock.badge()
@@ -162,11 +172,11 @@ struct SimulatorView: View {
                             Spacer()
                         }
 
-                        HStack(spacing: 8) {
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible())], spacing: 8) {
                             scenarioButton(
                                 emoji: "🚗", title: "卖车",
                                 isOn: carSaleOn,
-                                statusText: carSaleOn ? "¥\(Int(carSaleAmount))" : "未启用"
+                                statusText: carSaleOn ? "\(money(carSaleAmount))" : "未启用"
                             ) {
                                 proGate {
                                     if carSaleOn && carSaleAmount > 0 {
@@ -204,7 +214,7 @@ struct SimulatorView: View {
                             scenarioButton(
                                 emoji: "💰", title: "借款",
                                 isOn: borrowOn,
-                                statusText: borrowOn ? "¥\(Int(borrowAmount))" : "未启用"
+                                statusText: borrowOn ? "\(money(borrowAmount))" : "未启用"
                             ) {
                                 proGate {
                                     if borrowOn && borrowAmount > 0 {
@@ -228,7 +238,7 @@ struct SimulatorView: View {
                             }
                         }
 
-                        Text("点击场景立即模拟，可叠加「找到工作」一起算；再点一次可停用")
+                        Text(L("点击场景立即模拟，可叠加「找到工作」一起算；再点一次可停用"))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
@@ -244,20 +254,20 @@ struct SimulatorView: View {
                     VStack(spacing: 14) {
                         HStack {
                             Image(systemName: "target")
-                            Text("目标反推")
+                            Text(L("目标反推"))
                                 .font(.headline)
                             Spacer()
                         }
 
-                        Text("目标：撑过多少个月？")
+                        Text(L("目标：撑过多少个月？"))
                             .font(.subheadline)
                             .frame(maxWidth: .infinity, alignment: .leading)
 
                         Picker("", selection: $targetMonths) {
-                            Text("6个月").tag(6)
-                            Text("12个月").tag(12)
-                            Text("18个月").tag(18)
-                            Text("24个月").tag(24)
+                            Text(L("6个月")).tag(6)
+                            Text(L("12个月")).tag(12)
+                            Text(L("18个月")).tag(18)
+                            Text(L("24个月")).tag(24)
                         }
                         .pickerStyle(.segmented)
 
@@ -266,20 +276,20 @@ struct SimulatorView: View {
 
                             // 计算过程：积蓄 ÷ 目标月数
                             HStack {
-                                Text("积蓄 ¥\(Int(currentReport.totalSavings)) ÷ \(target.targetMonths) 个月")
+                                Text(Lf("积蓄 %@ ÷ %lld 个月", money(currentReport.totalSavings), target.targetMonths))
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                                 Spacer()
-                                Text("= ¥\(Int(target.monthlySpendable))/月")
+                                Text("= ¥\(Int(target.monthlySpendable.rounded()))/月")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
 
                             HStack {
-                                Text("每月最多可花")
+                                Text(L("每月最多可花"))
                                     .font(.subheadline)
                                 Spacer()
-                                Text("¥\(Int(target.monthlySpendable))")
+                                Text("\(money(target.monthlySpendable))")
                                     .font(.title3)
                                     .fontWeight(.bold)
                                     .foregroundStyle(.blue)
@@ -287,28 +297,28 @@ struct SimulatorView: View {
 
                             // 低于生存底线提醒
                             if target.belowBaseline {
-                                Label("低于家庭生存底线（¥\(Int(profile.familyBaseLivingCost))/月），光靠削减撑不过去，必须找到收入", systemImage: "exclamationmark.triangle.fill")
+                                Label("低于家庭生存底线（¥\(Int(profile.familyBaseLivingCost.rounded()))/月），光靠削减撑不过去，必须找到收入", systemImage: "exclamationmark.triangle.fill")
                                     .font(.caption)
                                     .foregroundStyle(.red)
                             }
 
                             HStack {
-                                Text("当前每月支出")
+                                Text(L("当前每月支出"))
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                                 Spacer()
-                                Text("¥\(Int(currentReport.totalMonthlyExpenses))")
+                                Text("\(money(currentReport.totalMonthlyExpenses))")
                                     .font(.subheadline)
                                     .fontWeight(.semibold)
                             }
 
                             if target.isAchievable {
-                                Label("每月支出在额度内，按现状能撑满 \(target.targetMonths) 个月，每月还能剩 ¥\(Int(-target.cutNeeded))", systemImage: "checkmark.circle.fill")
+                                Label(Lf("每月支出在额度内，按现状能撑满 %lld 个月，每月还能剩 %@", target.targetMonths, money(-target.cutNeeded)), systemImage: "checkmark.circle.fill")
                                     .font(.caption)
                                     .foregroundStyle(.green)
                             } else {
                                 VStack(alignment: .leading, spacing: 6) {
-                                    Label("每月支出比额度多 ¥\(Int(target.cutNeeded))，按现状撑不到 \(target.targetMonths) 个月", systemImage: "exclamationmark.triangle.fill")
+                                    Label(Lf("每月支出比额度多 %@，按现状撑不到 %lld 个月", money(target.cutNeeded), target.targetMonths), systemImage: "exclamationmark.triangle.fill")
                                         .font(.caption)
                                         .foregroundStyle(.red)
                                     Label("方案一：每月削减开支 ¥\(Int(target.cutNeeded))", systemImage: "scissors")
@@ -320,7 +330,7 @@ struct SimulatorView: View {
                                             .foregroundStyle(.orange)
                                     } else {
                                         HStack(spacing: 4) {
-                                            Label("方案二：找工作的具体建议", systemImage: "lock.fill")
+                                            Label(L("方案二：找工作的具体建议"), systemImage: "lock.fill")
                                                 .font(.caption)
                                                 .foregroundStyle(.orange)
                                             Spacer()
@@ -336,7 +346,7 @@ struct SimulatorView: View {
                     
                     // 计算按钮
                     Button(action: calculate) {
-                        Text("看看变化")
+                        Text(L("看看变化"))
                             .font(.headline)
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
@@ -344,55 +354,9 @@ struct SimulatorView: View {
                             .background(.blue, in: .capsule)
                     }
                     
-                    // 模拟结果
+                    // 模拟结果（独立 View：输入变化不重绘此区，消除卡顿）
                     if let report = simulatedReport {
-                        VStack(spacing: 12) {
-                            Text("模拟结果")
-                                .font(.headline)
-
-                            // 前后指标对比表
-                            comparisonRow(
-                                label: "可撑月数",
-                                before: "\(Int(currentReport.monthsCanSurvive)) 个月",
-                                after: "\(Int(report.monthsCanSurvive)) 个月",
-                                improved: report.monthsCanSurvive >= currentReport.monthsCanSurvive
-                            )
-                            comparisonRow(
-                                label: "资金耗尽日",
-                                before: formatDate(currentReport.exhaustionDate),
-                                after: formatDate(report.exhaustionDate),
-                                improved: report.exhaustionDate >= currentReport.exhaustionDate
-                            )
-                            comparisonRow(
-                                label: "每日预算",
-                                before: "¥\(Int(currentReport.dailyBudget))",
-                                after: "¥\(Int(report.dailyBudget))",
-                                improved: true
-                            )
-                            comparisonRow(
-                                label: currentReport.monthlyShortfall > 0 ? "月缺口" : "月盈余",
-                                before: "¥\(Int(abs(currentReport.monthlyShortfall)))",
-                                after: "¥\(Int(abs(report.monthlyShortfall)))",
-                                improved: abs(report.monthlyShortfall) <= abs(currentReport.monthlyShortfall)
-                            )
-
-                            if report.monthsCanSurvive > currentReport.monthsCanSurvive {
-                                Label("改善后多撑 \(Int(report.monthsCanSurvive - currentReport.monthsCanSurvive)) 个月", systemImage: "arrow.up.right.circle.fill")
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(.green)
-                            } else if report.monthsCanSurvive < currentReport.monthsCanSurvive {
-                                Label("改善后少撑 \(Int(currentReport.monthsCanSurvive - report.monthsCanSurvive)) 个月，请调整方案", systemImage: "exclamationmark.triangle.fill")
-                                    .font(.caption)
-                                    .foregroundStyle(.red)
-                            }
-                        }
-                        .padding()
-                        .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
-                        .id("simResult")
-
-                        // 资金曲线对比
-                        TimelineComparisonChart(current: currentReport, simulated: report)
+                        SimulationResultCard(current: currentReport, simulated: report).equatable()
                     }
                 }
                 .padding()
@@ -400,22 +364,41 @@ struct SimulatorView: View {
                 .scrollDismissesKeyboard(.immediately)
                 .scrollDisabled(false)
             }
-            .navigationTitle("模拟器")
+
+                } else {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+            .listStyle(.grouped)
+        .scrollIndicators(.hidden)
+        .navigationTitle("模拟器")
+        .hideKeyboardOnTap()
+            .onAppear {
+                // 每次进入都重算基准报告（后台算，首进不冻结 UI）：设置改动后模拟器基准实时联动
+                let d = UserProfileDraft(profile: profile)   // 主线程取值快照——后台不碰 @Model
+                Task.detached(priority: .userInitiated) {
+                    let r = SurvivalCalculator.calculate(from: d)
+                    await MainActor.run { reportCache = r }
+                }
+                if newJobIncomeText.isEmpty && newJobIncome > 0 { newJobIncomeText = String(Int(newJobIncome)) }
+                if probationIncomeText.isEmpty && probationIncome > 0 { probationIncomeText = String(Int(probationIncome)) }
+            }
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
-                    Button("完成") {
+                    Button(L("完成")) {
                         hideKeyboard()
                     }
                 }
             }
             .alert("Pro 专属功能", isPresented: $showProLock) {
-                Button("去解锁") {
+                Button(L("去解锁")) {
                     StoreManager.shared.showPaywall = true
                 }
                 Button("好", role: .cancel) {}
             } message: {
-                Text(ProLock.message(for: "场景模拟"))
+                Text(ProLock.message(for: proLockFeature))
             }
         }
     }
@@ -455,8 +438,8 @@ struct SimulatorView: View {
         var list: [String] = []
         if stopShoppingOn { list.append("停购物") }
         if stopEducationOn { list.append("停补课") }
-        if carSaleOn && carSaleAmount > 0 { list.append("卖车 ¥\(Int(carSaleAmount))") }
-        if borrowOn && borrowAmount > 0 { list.append("借款 ¥\(Int(borrowAmount))") }
+        if carSaleOn && carSaleAmount > 0 { list.append("卖车 ¥\(Int(carSaleAmount.rounded()))") }
+        if borrowOn && borrowAmount > 0 { list.append("借款 ¥\(Int(borrowAmount.rounded()))") }
         return list
     }
 
@@ -497,12 +480,15 @@ struct SimulatorView: View {
         Button(action: action) {
             VStack(spacing: 2) {
                 HStack(spacing: 4) {
-                    Text("\(emoji) \(title)")
+                    Text(emoji)
+                    Text(L(title))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
                     Image(systemName: "checkmark.circle.fill")
                         .font(.caption2)
                         .opacity(isOn ? 1 : 0)   // 占位保持宽度，避免跳动
                 }
-                Text(statusText)
+                Text(L(statusText))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -514,12 +500,12 @@ struct SimulatorView: View {
 
     private func cutField(_ label: String, value: Binding<Double>) -> some View {
         VStack(spacing: 2) {
-            Text(label)
+            Text(L(label))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             HStack(spacing: 2) {
                 TextField("0", value: value, format: .number)
-                    .keyboardType(.numberPad)
+                    .keyboardType(.decimalPad)
                     .textFieldStyle(.roundedBorder)
                     .multilineTextAlignment(.center)
                 Text("%")
@@ -533,7 +519,7 @@ struct SimulatorView: View {
 
     private func comparisonRow(label: String, before: String, after: String, improved: Bool) -> some View {
         HStack(spacing: 8) {
-            Text(label)
+            Text(L(label))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .frame(width: 70, alignment: .leading)
@@ -569,7 +555,7 @@ struct TimelineComparisonChart: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "chart.line.uptrend.xyaxis")
-                Text("资金曲线对比")
+                Text(L("资金曲线对比"))
                     .font(.headline)
                 Spacer()
             }
@@ -627,7 +613,7 @@ struct TimelineComparisonChart: View {
                     RoundedRectangle(cornerRadius: 1)
                         .fill(.gray)
                         .frame(width: 16, height: 2)
-                    Text("改善前")
+                    Text(L("改善前"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -635,7 +621,7 @@ struct TimelineComparisonChart: View {
                     RoundedRectangle(cornerRadius: 1)
                         .fill(.blue)
                         .frame(width: 16, height: 2.5)
-                    Text("改善后")
+                    Text(L("改善后"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -671,7 +657,7 @@ struct ScenarioSheet: View {
                     Section("卖车收入") {
                         TextField("卖车金额（元）", text: $amount)
                             .keyboardType(.decimalPad)
-                        Text("模拟效果：车贷消失 + 一次性卖车收入")
+                        Text(L("模拟效果：车贷消失 + 一次性卖车收入"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -681,23 +667,26 @@ struct ScenarioSheet: View {
                             .keyboardType(.decimalPad)
                         TextField("每月还款（元）", text: $repayment)
                             .keyboardType(.decimalPad)
-                        Text("模拟效果：一次性入账 + 每月新增还款支出")
+                        Text(L("模拟效果：一次性入账 + 每月新增还款支出"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
             }
-            .navigationTitle(scenario.rawValue)
+            .listStyle(.grouped)
+        .scrollIndicators(.hidden)
+        .navigationTitle(scenario.rawValue)
             .onAppear {
                 if amount.isEmpty && initialAmount > 0 { amount = String(Int(initialAmount)) }
                 if repayment.isEmpty && initialRepayment > 0 { repayment = String(Int(initialRepayment)) }
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button(L("取消")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("模拟") {
+                    Button(L("模拟")) {
+                        AnalyticsService.shared.track("action_simulate")
                         var params: [String: Double] = [:]
                         if let a = Double(amount) { params["amount"] = a }
                         if let r = Double(repayment) { params["repayment"] = r }
@@ -708,5 +697,84 @@ struct ScenarioSheet: View {
             }
         }
         .presentationDetents([.height(280)])
+    }
+}
+
+// MARK: - 模拟结果卡（独立 View：输入变化时避免整区重绘，消除输入卡顿）
+struct SimulationResultCard: View, Equatable {
+    let current: SurvivalReport
+    let simulated: SurvivalReport
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Text(L("模拟结果"))
+                .font(.headline)
+
+            comparisonRow(
+                label: "可撑月数",
+                before: Lf("%lld 个月", Int(current.monthsCanSurvive)),
+                after: Lf("%lld 个月", Int(simulated.monthsCanSurvive)),
+                improved: simulated.monthsCanSurvive >= current.monthsCanSurvive
+            )
+            comparisonRow(
+                label: "资金耗尽日",
+                before: formatDate(current.exhaustionDate),
+                after: formatDate(simulated.exhaustionDate),
+                improved: simulated.exhaustionDate >= current.exhaustionDate
+            )
+            comparisonRow(
+                label: "每日预算",
+                before: "\(money(current.dailyBudget))",
+                after: "\(money(simulated.dailyBudget))",
+                improved: true
+            )
+            comparisonRow(
+                label: current.monthlyShortfall > 0 ? "月缺口" : "月盈余",
+                before: "\(money(abs(current.monthlyShortfall)))",
+                after: "\(money(abs(simulated.monthlyShortfall)))",
+                improved: abs(simulated.monthlyShortfall) <= abs(current.monthlyShortfall)
+            )
+
+            if simulated.monthsCanSurvive > current.monthsCanSurvive {
+                Label(Lf("改善后多撑 %lld 个月", Int(simulated.monthsCanSurvive - current.monthsCanSurvive)), systemImage: "arrow.up.right.circle.fill")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.green)
+            } else if simulated.monthsCanSurvive < current.monthsCanSurvive {
+                Label(Lf("改善后少撑 %lld 个月，请调整方案", Int(current.monthsCanSurvive - simulated.monthsCanSurvive)), systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+        }
+        .padding()
+        .background(.ultraThinMaterial, in: .rect(cornerRadius: 16))
+        .id("simResult")
+
+        // 资金曲线对比
+        TimelineComparisonChart(current: current, simulated: simulated)
+    }
+
+    private func comparisonRow(label: String, before: String, after: String, improved: Bool) -> some View {
+        HStack(spacing: 8) {
+            Text(L(label))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .frame(width: 70, alignment: .leading)
+            Spacer()
+            Text(before)
+                .font(.caption)
+                .foregroundStyle(.gray)
+            Image(systemName: "arrow.right")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(after)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(improved ? .green : .red)
+        }
+    }
+
+    private func formatDate(_ date: Date) -> String {
+        date.formatted(.dateTime.year().month().day())
     }
 }
